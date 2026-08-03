@@ -44,20 +44,25 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
         ? settingsState.settings
         : AppSettings.defaults;
 
+    final timerState = context.watch<FocusTimerBloc>().state;
+    final bool isRunningOrPaused = timerState is FocusTimerRunningState ||
+        timerState is FocusTimerPausedState;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
         title: Text(widget.goal.title),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.more_horiz, color: Color(0xFFE2E2E2)),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
-          ),
+          if (!isRunningOrPaused)
+            IconButton(
+              icon: const Icon(Icons.more_horiz, color: Color(0xFFE2E2E2)),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
+                );
+              },
+            ),
         ],
       ),
       body: Container(
@@ -78,11 +83,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                           _handleCompletedSession(context, state);
                         }
                       },
-                      builder: (context, timerState) {
-                        final bool isRunningOrPaused =
-                            timerState is FocusTimerRunningState ||
-                                timerState is FocusTimerPausedState;
-
+                      builder: (context, currentTimerState) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -91,7 +92,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                                 child: isRunningOrPaused
                                     ? _ActiveSessionContent(
                                         goal: widget.goal,
-                                        timerState: timerState,
+                                        timerState: currentTimerState,
                                       )
                                     : _NoSessionContent(
                                         goal: widget.goal,
