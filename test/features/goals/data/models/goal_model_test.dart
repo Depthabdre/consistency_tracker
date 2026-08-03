@@ -2,11 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:consistency_tracker/features/goals/data/models/goal_model.dart';
 
 void main() {
-  group('GoalModel with createdAt', () {
+  group('GoalModel with createdAt & Edge Cases', () {
     final now = DateTime(2026, 8, 1);
     final goal = GoalModel(
       id: '1',
-      title: 'Flutter Coding',
+      title: 'Flutter Coding 🎯🚀',
       description: 'Build consistency tracker features daily',
       targetMinutes: 30,
       reminderTimeHour: 9,
@@ -27,6 +27,29 @@ void main() {
       expect(fromJsonGoal, equals(goal));
     });
 
+    test('Edge Case: handle unicode emojis and special characters in title and quote', () {
+      final unicodeGoal = goal.copyWith(
+        title: '🎯 Coding / & <script>alert("xss")</script> 🚀',
+        motivationalQuote: '¡Hola! 🌟 Success is 100% effort & persistence.',
+      );
+
+      final json = unicodeGoal.toJson();
+      final fromJson = GoalModel.fromJson(json);
+
+      expect(fromJson.title, equals('🎯 Coding / & <script>alert("xss")</script> 🚀'));
+      expect(fromJson.motivationalQuote, contains('¡Hola! 🌟'));
+    });
+
+    test('Edge Case: handle massive description strings (10,000 characters)', () {
+      final longDesc = 'A' * 10000;
+      final longGoal = goal.copyWith(description: longDesc);
+
+      final json = longGoal.toJson();
+      final fromJson = GoalModel.fromJson(json);
+
+      expect(fromJson.description.length, equals(10000));
+    });
+
     test('Edge Case: fromJson without createdAt should default to current DateTime', () {
       final jsonWithoutDate = {
         'id': 'g2',
@@ -38,6 +61,19 @@ void main() {
 
       expect(parsed.id, equals('g2'));
       expect(parsed.createdAt, isA<DateTime>());
+    });
+
+    test('Negative: fromJson with invalid targetMinutes string falls back safely', () {
+      final corruptedJson = {
+        'id': 'g3',
+        'title': 'Corrupted Goal',
+        'targetMinutes': 'invalid_string',
+      };
+
+      final parsed = GoalModel.fromJson(corruptedJson);
+
+      expect(parsed.id, equals('g3'));
+      expect(parsed.targetMinutes, equals(20)); // Defaults safely to 20
     });
   });
 }

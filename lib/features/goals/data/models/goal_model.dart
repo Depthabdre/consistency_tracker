@@ -40,18 +40,25 @@ class GoalModel extends Equatable {
     };
   }
 
+  static int _parseInt(dynamic val, int defaultValue) {
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    if (val is String) return int.tryParse(val) ?? defaultValue;
+    return defaultValue;
+  }
+
   factory GoalModel.fromJson(Map<String, dynamic> json) {
     return GoalModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? 'Target Goal',
       description: json['description'] as String? ?? '',
-      targetMinutes: json['targetMinutes'] as int? ?? 20,
-      reminderTimeHour: json['reminderTimeHour'] as int? ?? 9,
-      reminderTimeMinute: json['reminderTimeMinute'] as int? ?? 0,
+      targetMinutes: _parseInt(json['targetMinutes'], 20),
+      reminderTimeHour: _parseInt(json['reminderTimeHour'], 9),
+      reminderTimeMinute: _parseInt(json['reminderTimeMinute'], 0),
       motivationalQuote: json['motivationalQuote'] as String? ?? '',
       colorHex: json['colorHex'] as String? ?? '#6366F1',
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
     );
