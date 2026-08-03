@@ -11,6 +11,10 @@ abstract class NotificationRepository {
     required int hour,
     required int minute,
   });
+  Future<Result<void>> showImmediateNotification({
+    required String title,
+    required String body,
+  });
   Future<Result<void>> cancelReminder(int id);
 }
 
@@ -26,6 +30,19 @@ class NotificationRepositoryImpl implements NotificationRepository {
       return const Result.success(null);
     } catch (e) {
       return Result.failure(NotificationFailure('Notification init failed: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> showImmediateNotification({
+    required String title,
+    required String body,
+  }) async {
+    try {
+      await localDataSource.showImmediateNotification(title: title, body: body);
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(NotificationFailure('Immediate notification failed: $e'));
     }
   }
 

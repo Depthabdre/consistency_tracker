@@ -9,6 +9,10 @@ abstract class NotificationLocalDataSource {
     required int hour,
     required int minute,
   });
+  Future<void> showImmediateNotification({
+    required String title,
+    required String body,
+  });
   Future<void> cancelNotification(int id);
 }
 
@@ -32,6 +36,37 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     );
 
     await _notificationsPlugin.initialize(settings: initSettings);
+  }
+
+  @override
+  Future<void> showImmediateNotification({
+    required String title,
+    required String body,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'phase_transitions',
+      'Phase Transitions',
+      channelDescription: 'Notifications on focus and break phase transitions',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      macOS: darwinDetails,
+    );
+
+    await _notificationsPlugin.show(
+      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+    );
   }
 
   @override
