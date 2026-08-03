@@ -6,6 +6,8 @@ import '../../../calendar_heatmap/presentation/bloc/calendar_bloc.dart';
 import '../../../calendar_heatmap/presentation/bloc/calendar_event.dart';
 import '../../../calendar_heatmap/presentation/bloc/calendar_state.dart';
 import '../../../goals/data/models/goal_model.dart';
+import '../../../goals/presentation/bloc/goal_bloc.dart';
+import '../../../goals/presentation/bloc/goal_event.dart';
 import '../bloc/focus_timer_bloc.dart';
 import '../bloc/focus_timer_event.dart';
 import '../bloc/focus_timer_state.dart';
@@ -121,7 +123,6 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
         ? (calendarBloc.state as CalendarLoadedState).entries
         : <CalendarDayModel>[];
 
-    // Find existing minutes focused today for this goal
     int previousTodayMinutes = 0;
     for (final entry in currentEntries) {
       if (entry.date.year == today.year &&
@@ -148,6 +149,14 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
         day: updatedDay,
       ),
     );
+
+    // Synchronize GoalBloc today's progress map specifically for this goalId
+    context.read<GoalBloc>().add(
+          UpdateGoalProgressEvent(
+            goalId: widget.goal.id,
+            todayMinutes: cumulativeToday,
+          ),
+        );
 
     showDialog(
       context: context,
