@@ -1,86 +1,64 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Dark Palette Tokens
-  static const Color background = Color(0xFF0F172A); // Deep Slate
-  static const Color surface = Color(0xFF1E293B);    // Slate Surface Card
-  static const Color surfaceLight = Color(0xFF334155);
-  static const Color primary = Color(0xFF6366F1);    // Indigo Accent
-  static const Color secondary = Color(0xFF8B5CF6);  // Violet Accent
-  static const Color success = Color(0xFF10B981);    // Emerald Success
-  static const Color warning = Color(0xFFF59E0B);    // Amber Warning
-  static const Color error = Color(0xFFF43F5E);      // Coral Error
+  // Ultra-Sleek Dark Focus Palette
+  static const Color backgroundStart = Color(0xFF202020);
+  static const Color backgroundEnd = Color(0xFF2A2B2D);
+  static const Color surfaceCard = Color(0xFF323232);
+  static const Color borderOutline = Color(0xFF3F3F3F);
+  static const Color accentCyan = Color(0xFF53B5EA);     // Primary Focus Cyan
+  static const Color accentIndigo = Color(0xFF6366F1);   // Secondary Indigo
+  static const Color successGreen = Color(0xFF34D399);   // Mint Success
+  static const Color warningOrange = Color(0xFFF59E0B);
   
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  static const Color textPrimary = Color(0xFFE2E2E2);
+  static const Color textSecondary = Color(0xFFD0D0D0);
+  static const Color textMuted = Color(0xFFA0A0A0);
 
-  // Gradients
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const LinearGradient successGradient = LinearGradient(
-    colors: [Color(0xFF10B981), Color(0xFF059669)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+  static const LinearGradient backgroundGradient = LinearGradient(
+    colors: [backgroundStart, backgroundEnd],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
   );
 
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: background,
-      primaryColor: primary,
+      scaffoldBackgroundColor: backgroundStart,
+      primaryColor: accentCyan,
       colorScheme: const ColorScheme.dark(
-        primary: primary,
-        secondary: secondary,
-        surface: surface,
-        error: error,
+        primary: accentCyan,
+        secondary: accentIndigo,
+        surface: surfaceCard,
+        error: Color(0xFFF43F5E),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
+        iconTheme: IconThemeData(color: textPrimary),
         titleTextStyle: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
           color: textPrimary,
-          letterSpacing: -0.5,
+          letterSpacing: -0.3,
         ),
       ),
       cardTheme: CardThemeData(
-        color: surface,
+        color: surfaceCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.08),
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: borderOutline, width: 1.2),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-      ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
+        backgroundColor: surfaceCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: borderOutline, width: 1.2),
         ),
-      ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: surface,
-        selectedItemColor: primary,
-        unselectedItemColor: textMuted,
-        type: BottomNavigationBarType.fixed,
-        elevation: 12,
       ),
     );
   }
