@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../calendar_heatmap/presentation/bloc/calendar_bloc.dart';
+import '../../../calendar_heatmap/presentation/bloc/calendar_state.dart';
 import '../../data/models/goal_model.dart';
 import '../bloc/goal_bloc.dart';
 import '../bloc/goal_event.dart';
@@ -17,6 +19,21 @@ class GoalsListPage extends StatelessWidget {
     required this.onStartFocus,
     required this.onViewCalendar,
   });
+
+  int _getTodayMinutes(BuildContext context, String goalId) {
+    final state = context.read<CalendarBloc>().state;
+    if (state is CalendarLoadedState) {
+      final now = DateTime.now();
+      for (final entry in state.entries) {
+        if (entry.date.year == now.year &&
+            entry.date.month == now.month &&
+            entry.date.day == now.day) {
+          return entry.totalMinutesFocused;
+        }
+      }
+    }
+    return 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,42 +142,50 @@ class GoalsListPage extends StatelessWidget {
                             );
                           }
 
-                          return SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          return BlocBuilder<CalendarBloc, CalendarState>(
+                            builder: (context, calendarState) {
+                              return SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Text(
-                                      '${goals.length} Active Target Goals',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textMuted,
-                                      ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          '${goals.length} Active Target Goals',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.textMuted,
+                                          ),
+                                        ),
+                                        TextButton.icon(
+                                          onPressed: () => _openAddGoalModal(context),
+                                          icon: const Icon(Icons.add, size: 16, color: AppTheme.accentCyan),
+                                          label: const Text(
+                                            'New Goal',
+                                            style: TextStyle(color: AppTheme.accentCyan, fontSize: 13.5),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    TextButton.icon(
-                                      onPressed: () => _openAddGoalModal(context),
-                                      icon: const Icon(Icons.add, size: 16, color: AppTheme.accentCyan),
-                                      label: const Text(
-                                        'New Goal',
-                                        style: TextStyle(color: AppTheme.accentCyan, fontSize: 13.5),
-                                      ),
-                                    ),
+                                    const SizedBox(height: 12),
+                                    ...goals.map((goal) {
+                                      final todayMins = _getTodayMinutes(context, goal.id);
+                                      return GoalCardWidget(
+                                        goal: goal,
+                                        todayFocusedMinutes: todayMins,
+                                        onStartFocus: () => onStartFocus(goal),
+                                        onViewCalendar: () => onViewCalendar(goal),
+                                        onDelete: () {
+                                          _showGitHubStyleDeleteDialog(context, goal);
+                                        },
+                                      );
+                                    }),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
-                                ...goals.map((goal) => GoalCardWidget(
-                                      goal: goal,
-                                      onStartFocus: () => onStartFocus(goal),
-                                      onViewCalendar: () => onViewCalendar(goal),
-                                      onDelete: () {
-                                        _showGitHubStyleDeleteDialog(context, goal);
-                                      },
-                                    )),
-                              ],
-                            ),
+                              );
+                            },
                           );
                         }
 
