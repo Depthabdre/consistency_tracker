@@ -43,8 +43,15 @@ void main() {
     isCompleted: true,
   );
 
-  group('CalendarBloc', () {
-    test('Positive: LoadCalendarEntriesEvent emits CalendarLoadedState with correct streak', () async {
+  final yesterdayMissed = CalendarDayModel(
+    date: today.subtract(const Duration(days: 1)),
+    totalMinutesFocused: 20, // Target is 30 mins -> missed!
+    targetMinutes: 30,
+    isCompleted: false,
+  );
+
+  group('CalendarBloc - Heatmap Rules', () {
+    test('Positive: LoadCalendarEntriesEvent emits correct streak for consecutive target completed days', () async {
       when(() => mockRepository.getCalendarEntries('g1'))
           .thenAnswer((_) async => Result.success([testDayCompleted, yesterdayCompleted]));
 
@@ -59,7 +66,22 @@ void main() {
       );
     });
 
-    test('Edge Case: empty entries list should return 0 streak', () async {
+    test('Negative/Missed: streak breaks when a past day is missed (not reaching target)', () async {
+      when(() => mockRepository.getCalendarEntries('g1'))
+          .thenAnswer((_) async => Result.success([testDayCompleted, yesterdayMissed]));
+
+      bloc.add(const LoadCalendarEntriesEvent('g1'));
+
+      expect(
+        bloc.stream,
+        emitsInOrder([
+          const CalendarLoadingState(),
+          CalendarLoadedState(entries: [testDayCompleted, yesterdayMissed], currentStreak: 1),
+        ]),
+      );
+    });
+
+    test('Edge Case: empty entries list returns 0 streak', () async {
       when(() => mockRepository.getCalendarEntries('g1'))
           .thenAnswer((_) async => const Result.success([]));
 

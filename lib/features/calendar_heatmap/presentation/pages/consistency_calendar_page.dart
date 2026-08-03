@@ -127,6 +127,7 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                                 // Calendar Grid Widget
                                 CalendarGridWidget(
                                   currentMonth: _displayedMonth,
+                                  goalStartDate: widget.goal.createdAt,
                                   targetMinutes: widget.goal.targetMinutes,
                                   entries: state.entries,
                                   onDayTap: (day) {
