@@ -17,7 +17,6 @@ import '../bloc/focus_timer_bloc.dart';
 import '../bloc/focus_timer_event.dart';
 import '../bloc/focus_timer_state.dart';
 import '../reusable_widgets/circular_timer_widget.dart';
-import '../reusable_widgets/phase_timeline_widget.dart';
 import '../reusable_widgets/timer_controls.dart';
 
 class FocusTimerPage extends StatefulWidget {
@@ -617,14 +616,6 @@ class _ActiveSessionContent extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                // Phase Timeline Indicator
-                if (phases.isNotEmpty)
-                  PhaseTimelineWidget(
-                    phases: phases,
-                    currentPhaseIndex: currentPhaseIndex,
-                  ),
-                const SizedBox(height: 20),
-
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final Size screenSize = MediaQuery.sizeOf(context);
