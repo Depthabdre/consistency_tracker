@@ -31,7 +31,7 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
       iOS: darwinSettings,
     );
 
-    await _notificationsPlugin.initialize(initSettings);
+    await _notificationsPlugin.initialize(settings: initSettings);
   }
 
   @override
@@ -61,15 +61,15 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     );
 
     await _notificationsPlugin.show(
-      id,
-      title,
-      body,
-      notificationDetails,
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
     );
   }
 
   @override
   Future<void> cancelNotification(int id) async {
-    await _notificationsPlugin.cancel(id);
+    await _notificationsPlugin.cancel(id: id);
   }
 }
