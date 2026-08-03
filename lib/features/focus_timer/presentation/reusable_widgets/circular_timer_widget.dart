@@ -90,40 +90,16 @@ class _CircularProgressTimerState extends State<CircularProgressTimer>
             ),
           ),
 
-          // Inner Timer Text & Clean Phase Badge Layout
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                formatSecondsDynamic(widget.remainingSeconds),
-                style: TextStyle(
-                  fontSize: widget.size * 0.17,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFF9FAFB),
-                  letterSpacing: -0.5,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: activeColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  widget.phaseType == SessionPhaseType.breakTime
-                      ? 'BREAK Phase'
-                      : 'FOCUS Session',
-                  style: TextStyle(
-                    letterSpacing: 1.0,
-                    fontSize: widget.size * 0.040,
-                    color: activeColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+          // Inner Timer Counter (Clean & Minimal)
+          Text(
+            formatSecondsDynamic(widget.remainingSeconds),
+            style: TextStyle(
+              fontSize: widget.size * 0.17,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFFF9FAFB),
+              letterSpacing: -0.5,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),
