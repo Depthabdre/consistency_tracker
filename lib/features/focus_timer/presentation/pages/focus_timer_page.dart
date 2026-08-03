@@ -7,10 +7,15 @@ import '../../../calendar_heatmap/presentation/bloc/calendar_event.dart';
 import '../../../goals/data/models/goal_model.dart';
 import '../../../goals/presentation/bloc/goal_bloc.dart';
 import '../../../goals/presentation/bloc/goal_event.dart';
+import '../../../settings/domain/entities/app_settings.dart';
+import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../settings/presentation/bloc/settings_state.dart';
+import '../../domain/entities/session_phase.dart';
 import '../bloc/focus_timer_bloc.dart';
 import '../bloc/focus_timer_event.dart';
 import '../bloc/focus_timer_state.dart';
 import '../reusable_widgets/circular_timer_widget.dart';
+import '../reusable_widgets/phase_timeline_widget.dart';
 import '../reusable_widgets/timer_controls.dart';
 
 class FocusTimerPage extends StatefulWidget {
@@ -33,6 +38,11 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final settingsState = context.watch<SettingsBloc>().state;
+    final activeSettings = settingsState is SettingsLoaded
+        ? settingsState.settings
+        : AppSettings.defaults;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
@@ -74,6 +84,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                                     : _NoSessionContent(
                                         goal: widget.goal,
                                         selectedMinutes: _selectedMinutes,
+                                        settings: activeSettings,
                                         onMinutesChanged: (newMins) {
                                           setState(() => _selectedMinutes = newMins);
                                         },
@@ -89,11 +100,13 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                                                 (_selectedMinutes + 5).clamp(5, 720);
                                           });
                                         },
-                                        onStartTap: () {
+                                        onStartTap: (skipBreaks) {
                                           context.read<FocusTimerBloc>().add(
                                                 StartFocusTimerEvent(
                                                   goalId: widget.goal.id,
                                                   targetMinutes: _selectedMinutes,
+                                                  settings: activeSettings,
+                                                  skipBreaks: skipBreaks,
                                                 ),
                                               );
                                         },
@@ -223,14 +236,16 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
 class _NoSessionContent extends StatefulWidget {
   final GoalModel goal;
   final int selectedMinutes;
+  final AppSettings settings;
   final ValueChanged<int> onMinutesChanged;
   final VoidCallback onMinusTap;
   final VoidCallback onPlusTap;
-  final VoidCallback onStartTap;
+  final Function(bool skipBreaks) onStartTap;
 
   const _NoSessionContent({
     required this.goal,
     required this.selectedMinutes,
+    required this.settings,
     required this.onMinutesChanged,
     required this.onMinusTap,
     required this.onPlusTap,
@@ -291,10 +306,36 @@ class _NoSessionContentState extends State<_NoSessionContent> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderOutline, width: 1.2),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
+          // Configured Session Setup Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF26282E),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.borderOutline, width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.tune, size: 16, color: AppTheme.accentCyan),
+                const SizedBox(width: 8),
+                Text(
+                  'Session Config: ${widget.settings.focusDurationMinutes}m focus • ${widget.settings.breakDurationMinutes}m break',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFD1D5DB),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
           Text(
             'Ready, set, focus!',
             textAlign: TextAlign.center,
@@ -304,7 +345,7 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                   fontSize: 22,
                 ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Text(
             'Target for "${widget.goal.title}" is ${widget.goal.targetMinutes} minutes daily.\n'
             'Tell us how much time you have for this session.',
@@ -315,7 +356,7 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                   height: 1.4,
                 ),
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 32),
 
           // Duration Stepper Box
           Container(
@@ -453,7 +494,7 @@ class _NoSessionContentState extends State<_NoSessionContent> {
           SizedBox(
             height: 42,
             child: FilledButton.icon(
-              onPressed: widget.onStartTap,
+              onPressed: () => widget.onStartTap(_skipBreaks),
               icon: const Icon(Icons.play_arrow, size: 20, color: Colors.black),
               label: const Text('Start focus session'),
               style: FilledButton.styleFrom(
@@ -487,23 +528,37 @@ class _ActiveSessionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    int elapsedSeconds = 0;
-    int targetMinutes = goal.targetMinutes;
+    int remainingSeconds = 0;
+    int totalPhaseSeconds = goal.targetMinutes * 60;
     bool isPaused = false;
+    List<SessionPhase> phases = [];
+    int currentPhaseIndex = 0;
+    SessionPhaseType phaseType = SessionPhaseType.focus;
 
     if (timerState is FocusTimerRunningState) {
       final s = timerState as FocusTimerRunningState;
-      elapsedSeconds = s.elapsedSeconds;
-      targetMinutes = s.targetMinutes;
+      phases = s.phases;
+      currentPhaseIndex = s.currentPhaseIndex;
+      remainingSeconds = s.remainingSecondsInPhase;
+      final currentPhase = s.currentPhase;
+      if (currentPhase != null) {
+        totalPhaseSeconds = currentPhase.durationSeconds;
+        phaseType = currentPhase.type;
+      }
     } else if (timerState is FocusTimerPausedState) {
       final s = timerState as FocusTimerPausedState;
-      elapsedSeconds = s.elapsedSeconds;
-      targetMinutes = s.targetMinutes;
+      phases = s.phases;
+      currentPhaseIndex = s.currentPhaseIndex;
+      remainingSeconds = s.remainingSecondsInPhase;
       isPaused = true;
+      final currentPhase = s.currentPhase;
+      if (currentPhase != null) {
+        totalPhaseSeconds = currentPhase.durationSeconds;
+        phaseType = currentPhase.type;
+      }
     }
 
-    final totalTargetSeconds = targetMinutes * 60;
-    final remainingSeconds = (totalTargetSeconds - elapsedSeconds).clamp(0, 99999);
+    final bool isBreak = phaseType == SessionPhaseType.breakTime;
 
     return Container(
       decoration: BoxDecoration(
@@ -513,35 +568,46 @@ class _ActiveSessionContent extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          const Positioned(
+          Positioned(
             top: 14,
             left: 16,
             child: Text(
-              'FOCUS PERIOD',
+              isBreak ? 'BREAK PERIOD' : 'FOCUS PERIOD',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF8A8A8A),
+                color: isBreak ? const Color(0xFF7ED39A) : const Color(0xFF8A8A8A),
                 fontSize: 11,
                 letterSpacing: 0.8,
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 24, right: 24, top: 48, bottom: 28),
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 44, bottom: 28),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                LayoutBuilder(builder: (context, constraints) {
-                  return CircularProgressTimer(
-                    remainingSeconds: remainingSeconds,
-                    totalSeconds: totalTargetSeconds,
-                    phaseType: SessionPhaseType.focus,
-                    size: 260.0,
-                  );
-                }),
+                // Phase Timeline Indicator
+                if (phases.isNotEmpty)
+                  PhaseTimelineWidget(
+                    phases: phases,
+                    currentPhaseIndex: currentPhaseIndex,
+                  ),
+                const SizedBox(height: 20),
+
+                CircularProgressTimer(
+                  remainingSeconds: remainingSeconds,
+                  totalSeconds: totalPhaseSeconds,
+                  phaseType: isBreak ? SessionPhaseType.breakTime : SessionPhaseType.focus,
+                  size: 260.0,
+                ),
                 const SizedBox(height: 24),
+
                 Text(
-                  isPaused ? 'Session Paused' : 'Focus session active',
+                  isPaused
+                      ? 'Session Paused'
+                      : isBreak
+                          ? 'Break phase active ☕'
+                          : 'Focus session active 🎯',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -560,9 +626,7 @@ class _ActiveSessionContent extends StatelessWidget {
                     context.read<FocusTimerBloc>().add(const ResumeFocusTimerEvent());
                   },
                   onStop: () {
-                    context.read<FocusTimerBloc>().add(
-                          CompleteFocusTimerEvent(elapsedSeconds: elapsedSeconds),
-                        );
+                    context.read<FocusTimerBloc>().add(const CompleteFocusTimerEvent());
                   },
                 ),
               ],

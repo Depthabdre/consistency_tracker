@@ -1,8 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/utils/time_formatter.dart';
-
-enum SessionPhaseType { focus, breakTime }
+import '../../domain/entities/session_phase.dart';
 
 class CircularProgressTimer extends StatefulWidget {
   const CircularProgressTimer({
