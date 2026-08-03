@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/focus_session_model.dart';
 import '../../data/repositories/focus_session_repository.dart';
@@ -101,13 +102,14 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
           ? (state as FocusTimerRunningState).targetMinutes
           : (state as FocusTimerPausedState).targetMinutes;
 
-      final elapsedSeconds = event.elapsedSeconds ??
+      final rawSeconds = event.elapsedSeconds ??
           ((state is FocusTimerRunningState)
               ? (state as FocusTimerRunningState).elapsedSeconds
               : (state as FocusTimerPausedState).elapsedSeconds);
 
-      final durationMinutes = (elapsedSeconds / 60).floor();
-      final isTargetMet = elapsedSeconds >= (targetMinutes * 60);
+      final safeSeconds = math.max(0, rawSeconds);
+      final durationMinutes = (safeSeconds / 60).floor();
+      final isTargetMet = safeSeconds >= (targetMinutes * 60);
 
       final session = FocusSessionModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
