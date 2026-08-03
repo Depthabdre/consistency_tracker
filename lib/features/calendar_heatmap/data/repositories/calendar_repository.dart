@@ -6,6 +6,11 @@ import '../models/calendar_day_model.dart';
 abstract class CalendarRepository {
   Future<Result<List<CalendarDayModel>>> getCalendarEntries(String goalId);
   Future<Result<bool>> saveCalendarDay(String goalId, CalendarDayModel day);
+  Future<Result<CalendarDayModel>> addFocusMinutesToToday({
+    required String goalId,
+    required int targetMinutes,
+    required int minutesToAdd,
+  });
 }
 
 class CalendarRepositoryImpl implements CalendarRepository {
@@ -30,6 +35,24 @@ class CalendarRepositoryImpl implements CalendarRepository {
       return Result.success(success);
     } catch (e) {
       return Result.failure(CacheFailure('Failed to save calendar day: $e'));
+    }
+  }
+
+  @override
+  Future<Result<CalendarDayModel>> addFocusMinutesToToday({
+    required String goalId,
+    required int targetMinutes,
+    required int minutesToAdd,
+  }) async {
+    try {
+      final updatedDay = await localDataSource.addFocusMinutesToToday(
+        goalId: goalId,
+        targetMinutes: targetMinutes,
+        minutesToAdd: minutesToAdd,
+      );
+      return Result.success(updatedDay);
+    } catch (e) {
+      return Result.failure(CacheFailure('Failed to add focus minutes: $e'));
     }
   }
 }
