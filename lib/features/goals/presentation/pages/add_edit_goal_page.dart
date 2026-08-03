@@ -20,15 +20,15 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
   int _targetMinutes = 25;
   int _reminderHour = 9;
   int _reminderMinute = 0;
-  String _selectedColor = '#6366F1';
+  String _selectedColor = '#53B5EA';
 
   final List<String> _colorOptions = [
+    '#53B5EA', // Cyan
     '#6366F1', // Indigo
     '#8B5CF6', // Violet
-    '#10B981', // Emerald
+    '#34D399', // Emerald Mint
     '#F59E0B', // Amber
     '#F43F5E', // Coral
-    '#06B6D4', // Cyan
   ];
 
   final List<String> _quotePresets = [
@@ -77,8 +77,8 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SingleChildScrollView(
         child: Form(
@@ -93,9 +93,9 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                   Text(
                     widget.goal == null ? 'Set New Target Goal' : 'Edit Target Goal',
                     style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                   IconButton(
@@ -109,15 +109,15 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
               // Title
               TextFormField(
                 controller: _titleController,
-                style: const TextStyle(color: AppTheme.textPrimary),
+                style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Goal Title',
                   hintText: 'e.g. Daily Flutter Code Focus',
                   filled: true,
-                  fillColor: AppTheme.background,
+                  fillColor: AppTheme.backgroundStart,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.borderOutline),
                   ),
                 ),
                 validator: (val) =>
@@ -128,15 +128,15 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
               // Description
               TextFormField(
                 controller: _descriptionController,
-                style: const TextStyle(color: AppTheme.textPrimary),
+                style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Description (Optional)',
                   hintText: 'Brief detail about your target',
                   filled: true,
-                  fillColor: AppTheme.background,
+                  fillColor: AppTheme.backgroundStart,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.borderOutline),
                   ),
                 ),
               ),
@@ -151,21 +151,21 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
+                      color: Colors.white,
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.accentCyan.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '$_targetMinutes mins/day',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.primary,
+                        color: AppTheme.accentCyan,
                       ),
                     ),
                   ),
@@ -176,22 +176,22 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                 min: 5,
                 max: 120,
                 divisions: 23,
-                activeColor: AppTheme.primary,
-                inactiveColor: AppTheme.background,
+                activeColor: AppTheme.accentCyan,
+                inactiveColor: AppTheme.backgroundStart,
                 onChanged: (val) => setState(() => _targetMinutes = val.toInt()),
               ),
               const SizedBox(height: 16),
 
-              // Motivational Reminder Quote
+              // Motivational Quote
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Motivational Reminder Quote',
+                    'Motivational Quote',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
+                      color: Colors.white,
                     ),
                   ),
                   TextButton.icon(
@@ -199,21 +199,21 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                       final randomQuote = (List.from(_quotePresets)..shuffle()).first;
                       setState(() => _quoteController.text = randomQuote);
                     },
-                    icon: const Icon(Icons.shuffle, size: 14),
-                    label: const Text('Randomize', style: TextStyle(fontSize: 12)),
+                    icon: const Icon(Icons.shuffle, size: 14, color: AppTheme.accentCyan),
+                    label: const Text('Randomize', style: TextStyle(fontSize: 12, color: AppTheme.accentCyan)),
                   ),
                 ],
               ),
               TextFormField(
                 controller: _quoteController,
                 maxLines: 2,
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppTheme.background,
+                  fillColor: AppTheme.backgroundStart,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.borderOutline),
                   ),
                 ),
               ),
@@ -225,7 +225,7 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 10),
@@ -236,27 +236,18 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                   return GestureDetector(
                     onTap: () => setState(() => _selectedColor = hex),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         color: _parseHex(hex),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isSelected ? Colors.white : Colors.transparent,
-                          width: 3,
+                          width: 2.5,
                         ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: _parseHex(hex).withValues(alpha: 0.6),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                )
-                              ]
-                            : [],
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check, size: 20, color: Colors.white)
+                          ? const Icon(Icons.check, size: 18, color: Colors.black)
                           : null,
                     ),
                   );
@@ -267,21 +258,21 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
               // Save CTA Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                height: 44,
+                child: FilledButton(
                   onPressed: _saveGoal,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.accentCyan,
+                    foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   child: Text(
                     widget.goal == null ? 'Create Goal' : 'Save Changes',
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),

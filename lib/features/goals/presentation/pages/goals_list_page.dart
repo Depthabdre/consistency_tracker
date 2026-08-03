@@ -21,185 +21,164 @@ class GoalsListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.bolt, color: AppTheme.primary, size: 26),
-            SizedBox(width: 8),
-            Text('Consistency Targets'),
-          ],
-        ),
+        title: const Text('Consistency Targets'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: AppTheme.textPrimary),
+            onPressed: () => _openAddGoalModal(context),
+          ),
+        ],
       ),
-      body: BlocBuilder<GoalBloc, GoalState>(
-        builder: (context, state) {
-          if (state is GoalLoadingState) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
-            );
-          }
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth < 600 ? 460 : 700;
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: BlocBuilder<GoalBloc, GoalState>(
+                      builder: (context, state) {
+                        if (state is GoalLoadingState) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: AppTheme.accentCyan),
+                          );
+                        }
 
-          if (state is GoalErrorState) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
-                  const SizedBox(height: 12),
-                  Text(state.message, style: const TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => context.read<GoalBloc>().add(const LoadGoalsEvent()),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
+                        if (state is GoalErrorState) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error_outline, size: 48, color: Color(0xFFF43F5E)),
+                                const SizedBox(height: 12),
+                                Text(state.message, style: const TextStyle(color: AppTheme.textSecondary)),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: () => context.read<GoalBloc>().add(const LoadGoalsEvent()),
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
 
-          if (state is GoalLoadedState) {
-            final goals = state.goals;
+                        if (state is GoalLoadedState) {
+                          final goals = state.goals;
 
-            if (goals.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.track_changes,
-                          size: 64,
-                          color: AppTheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'No Targets Configured Yet',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Set your daily focus goals, minimum target minutes, and motivational quotes to build compounding consistency.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () => _openAddGoalModal(context),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create First Goal'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                    ],
+                          if (goals.isEmpty) {
+                            return Center(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceCard,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppTheme.borderOutline, width: 1.2),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Ready, set, focus!',
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                            fontSize: 22,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    const Text(
+                                      'Achieve your daily goals with consistency sessions.\n'
+                                      'Set your daily target minutes and build long-term momentum.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondary,
+                                        fontSize: 14,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 28),
+                                    SizedBox(
+                                      height: 42,
+                                      child: FilledButton.icon(
+                                        onPressed: () => _openAddGoalModal(context),
+                                        icon: const Icon(Icons.add, size: 20, color: Colors.black),
+                                        label: const Text('Create First Target Goal'),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: AppTheme.accentCyan,
+                                          foregroundColor: Colors.black,
+                                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                                          textStyle: const TextStyle(
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          return SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '${goals.length} Active Target Goals',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textMuted,
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => _openAddGoalModal(context),
+                                      icon: const Icon(Icons.add, size: 16, color: AppTheme.accentCyan),
+                                      label: const Text(
+                                        'New Goal',
+                                        style: TextStyle(color: AppTheme.accentCyan, fontSize: 13.5),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                ...goals.map((goal) => GoalCardWidget(
+                                      goal: goal,
+                                      onStartFocus: () => onStartFocus(goal),
+                                      onViewCalendar: () => onViewCalendar(goal),
+                                      onDelete: () {
+                                        context.read<GoalBloc>().add(DeleteGoalEvent(goal.id));
+                                      },
+                                    )),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ),
                 ),
               );
-            }
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Overview Stats Header Banner
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Active Targets',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${goals.length} Goals Registered',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                        FloatingActionButton.small(
-                          onPressed: () => _openAddGoalModal(context),
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppTheme.primary,
-                          elevation: 0,
-                          child: const Icon(Icons.add),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Your Goals',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...goals.map((goal) => GoalCardWidget(
-                        goal: goal,
-                        onStartFocus: () => onStartFocus(goal),
-                        onViewCalendar: () => onViewCalendar(goal),
-                        onDelete: () {
-                          context.read<GoalBloc>().add(DeleteGoalEvent(goal.id));
-                        },
-                      )),
-                ],
-              ),
-            );
-          }
-
-          return const SizedBox.shrink();
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openAddGoalModal(context),
-        child: const Icon(Icons.add),
+            },
+          ),
+        ),
       ),
     );
   }
