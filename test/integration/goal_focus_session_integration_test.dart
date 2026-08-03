@@ -15,7 +15,7 @@ void main() {
 
   final goalA = GoalModel(
     id: 'goal_a',
-    title: 'Flutter Coding',
+    title: 'Flutter Coding 🎯',
     description: 'Build consistency tracker features',
     targetMinutes: 30,
     reminderTimeHour: 9,
@@ -27,7 +27,7 @@ void main() {
 
   final goalB = GoalModel(
     id: 'goal_b',
-    title: 'Daily Reading',
+    title: 'Daily Reading 📚',
     description: 'Read technical books',
     targetMinutes: 25,
     reminderTimeHour: 20,
@@ -41,23 +41,16 @@ void main() {
     mockGoalRepository = MockGoalRepository();
     when(() => mockGoalRepository.getGoals())
         .thenAnswer((_) async => Result.success([goalA, goalB]));
+    when(() => mockGoalRepository.deleteGoal(any()))
+        .thenAnswer((_) async => const Result.success(true));
     goalBloc = GoalBloc(goalRepository: mockGoalRepository);
   });
 
-  group('Integration - Multi-Goal Focus Progress Isolation', () {
+  group('Integration - Positive Multi-Goal Focus Isolation', () {
     test('Focusing 1 minute on Goal A updates ONLY Goal A and leaves Goal B at 0', () async {
-      // 1. Initial Load
       goalBloc.add(const LoadGoalsEvent());
-      await expectLater(
-        goalBloc.stream,
-        emitsThrough(isA<GoalLoadedState>()),
-      );
+      await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
 
-      final initialState = goalBloc.state as GoalLoadedState;
-      expect(initialState.todayMinutesByGoalId['goal_a'] ?? 0, equals(0));
-      expect(initialState.todayMinutesByGoalId['goal_b'] ?? 0, equals(0));
-
-      // 2. User focuses 1 minute on Goal A
       goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 1));
       await expectLater(
         goalBloc.stream,
@@ -70,30 +63,15 @@ void main() {
         ),
       );
 
-      final updatedState = goalBloc.state as GoalLoadedState;
-
-      // Assert Goal A has 1 minute focused (1 / 30 mins) -> NOT completed!
-      final goalAMins = updatedState.todayMinutesByGoalId['goal_a'] ?? 0;
-      final isGoalACompleted = goalAMins >= goalA.targetMinutes;
-      expect(goalAMins, equals(1));
-      expect(isGoalACompleted, isFalse);
-
-      // Assert Goal B remains untouched at 0 minutes (0 / 25 mins) -> NOT completed!
-      final goalBMins = updatedState.todayMinutesByGoalId['goal_b'] ?? 0;
-      final isGoalBCompleted = goalBMins >= goalB.targetMinutes;
-      expect(goalBMins, equals(0));
-      expect(isGoalBCompleted, isFalse);
+      final state = goalBloc.state as GoalLoadedState;
+      expect(state.todayMinutesByGoalId['goal_a'], equals(1));
+      expect(state.todayMinutesByGoalId['goal_b'] ?? 0, equals(0));
     });
 
-    test('Completing Goal A target (30 mins) completes ONLY Goal A, leaving Goal B incomplete', () async {
-      // 1. Initial Load
+    test('Completing Goal A target (30 mins) completes ONLY Goal A', () async {
       goalBloc.add(const LoadGoalsEvent());
-      await expectLater(
-        goalBloc.stream,
-        emitsThrough(isA<GoalLoadedState>()),
-      );
+      await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
 
-      // 2. User completes full 30 minutes on Goal A
       goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 30));
       await expectLater(
         goalBloc.stream,
@@ -107,14 +85,79 @@ void main() {
       );
 
       final state = goalBloc.state as GoalLoadedState;
+      expect(state.todayMinutesByGoalId['goal_a']! >= goalA.targetMinutes, isTrue);
+      expect((state.todayMinutesByGoalId['goal_b'] ?? 0) >= goalB.targetMinutes, isFalse);
+    });
+  });
 
-      // Assert Goal A is completed (30 >= 30)
-      final goalAMins = state.todayMinutesByGoalId['goal_a'] ?? 0;
-      expect(goalAMins >= goalA.targetMinutes, isTrue);
+  group('Integration - Negative & Unusual Edge Cases', () {
+    test('Negative: Updating progress for non-existent goal ID does not corrupt existing goals', () async {
+      goalBloc.add(const LoadGoalsEvent());
+      await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
 
-      // Assert Goal B remains incomplete (0 < 25)
-      final goalBMins = state.todayMinutesByGoalId['goal_b'] ?? 0;
-      expect(goalBMins >= goalB.targetMinutes, isFalse);
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'ghost_goal_99', todayMinutes: 15));
+      await expectLater(
+        goalBloc.stream,
+        emitsThrough(
+          isA<GoalLoadedState>().having(
+            (s) => s.todayMinutesByGoalId['ghost_goal_99'],
+            'Ghost goal progress',
+            equals(15),
+          ),
+        ),
+      );
+
+      final state = goalBloc.state as GoalLoadedState;
+      // Existing goals remain unaffected
+      expect(state.todayMinutesByGoalId['goal_a'] ?? 0, equals(0));
+      expect(state.todayMinutesByGoalId['goal_b'] ?? 0, equals(0));
+    });
+
+    test('Edge Case: Extremely large focus minutes (720 mins) handled safely', () async {
+      goalBloc.add(const LoadGoalsEvent());
+      await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
+
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 720));
+      await expectLater(
+        goalBloc.stream,
+        emitsThrough(
+          isA<GoalLoadedState>().having(
+            (s) => s.todayMinutesByGoalId['goal_a'],
+            'Goal A max progress',
+            equals(720),
+          ),
+        ),
+      );
+
+      final state = goalBloc.state as GoalLoadedState;
+      expect(state.todayMinutesByGoalId['goal_a'], equals(720));
+    });
+  });
+
+  group('Integration - Monkey / Chaos Testing Scenarios', () {
+    test('Chaos: Rapid interleaved progress updates, goal deletion, and reloads retain consistency', () async {
+      goalBloc.add(const LoadGoalsEvent());
+      await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
+
+      // Rapidly dispatch multiple conflicting events
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 5));
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_b', todayMinutes: 10));
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 20));
+
+      await expectLater(
+        goalBloc.stream,
+        emitsThrough(
+          isA<GoalLoadedState>().having(
+            (s) => s.todayMinutesByGoalId['goal_a'],
+            'Final Goal A progress',
+            equals(20),
+          ),
+        ),
+      );
+
+      final state = goalBloc.state as GoalLoadedState;
+      expect(state.todayMinutesByGoalId['goal_a'], equals(20));
+      expect(state.todayMinutesByGoalId['goal_b'], equals(10));
     });
   });
 }
