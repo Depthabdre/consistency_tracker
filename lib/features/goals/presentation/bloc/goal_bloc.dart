@@ -1,12 +1,17 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../notifications/data/repositories/notification_repository.dart';
 import '../../data/repositories/goal_repository.dart';
 import 'goal_event.dart';
 import 'goal_state.dart';
 
 class GoalBloc extends Bloc<GoalEvent, GoalState> {
   final GoalRepository goalRepository;
+  final NotificationRepository? notificationRepository;
 
-  GoalBloc({required this.goalRepository}) : super(const GoalInitialState()) {
+  GoalBloc({
+    required this.goalRepository,
+    this.notificationRepository,
+  }) : super(const GoalInitialState()) {
     on<LoadGoalsEvent>(_onLoadGoals);
     on<AddGoalEvent>(_onAddGoal);
     on<DeleteGoalEvent>(_onDeleteGoal);
@@ -24,7 +29,9 @@ class GoalBloc extends Bloc<GoalEvent, GoalState> {
     emit(const GoalLoadingState());
     final result = await goalRepository.getGoals();
     result.fold(
-      onSuccess: (goals) => emit(GoalLoadedState(goals, todayMinutesByGoalId: currentProgressMap)),
+      onSuccess: (goals) {
+        emit(GoalLoadedState(goals, todayMinutesByGoalId: currentProgressMap));
+      },
       onFailure: (failure) => emit(GoalErrorState(failure.message)),
     );
   }
@@ -35,9 +42,14 @@ class GoalBloc extends Bloc<GoalEvent, GoalState> {
   ) async {
     emit(const GoalLoadingState());
     final saveResult = await goalRepository.saveGoal(event.goal);
-    saveResult.fold(
-      onSuccess: (_) => add(const LoadGoalsEvent()),
-      onFailure: (failure) => emit(GoalErrorState(failure.message)),
+    await saveResult.fold(
+      onSuccess: (_) async {
+        if (notificationRepository != null) {
+          await notificationRepository!.scheduleGoalReminders(event.goal);
+        }
+        add(const LoadGoalsEvent());
+      },
+      onFailure: (failure) async => emit(GoalErrorState(failure.message)),
     );
   }
 
@@ -47,9 +59,14 @@ class GoalBloc extends Bloc<GoalEvent, GoalState> {
   ) async {
     emit(const GoalLoadingState());
     final deleteResult = await goalRepository.deleteGoal(event.id);
-    deleteResult.fold(
-      onSuccess: (_) => add(const LoadGoalsEvent()),
-      onFailure: (failure) => emit(GoalErrorState(failure.message)),
+    await deleteResult.fold(
+      onSuccess: (_) async {
+        if (notificationRepository != null) {
+          await notificationRepository!.cancelGoalReminders(event.id);
+        }
+        add(const LoadGoalsEvent());
+      },
+      onFailure: (failure) async => emit(GoalErrorState(failure.message)),
     );
   }
 

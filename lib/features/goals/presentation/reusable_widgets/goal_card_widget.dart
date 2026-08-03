@@ -34,6 +34,7 @@ class GoalCardWidget extends StatelessWidget {
     final progressRatio = goal.targetMinutes > 0
         ? (todayFocusedMinutes / goal.targetMinutes).clamp(0.0, 1.0)
         : 0.0;
+    final reminders = goal.activeReminderTimes;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -135,7 +136,42 @@ class GoalCardWidget extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Active Reminder Chips
+            if (reminders.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: reminders.map((r) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF262626),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.borderOutline.withValues(alpha: 0.6)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.notifications_outlined,
+                              size: 12, color: AppTheme.accentCyan),
+                          const SizedBox(width: 4),
+                          Text(
+                            r.formattedTime,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
 
             // Daily Progress Bar
             Row(

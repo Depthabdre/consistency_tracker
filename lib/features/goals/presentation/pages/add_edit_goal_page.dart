@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/goal_model.dart';
+import '../../data/models/reminder_time_model.dart';
 
 class AddEditGoalModal extends StatefulWidget {
   final GoalModel? goal;
@@ -18,8 +19,9 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
   late TextEditingController _descriptionController;
   late TextEditingController _quoteController;
   int _targetMinutes = 25;
-  int _reminderHour = 9;
-  int _reminderMinute = 0;
+  List<ReminderTimeModel> _reminderTimes = [
+    const ReminderTimeModel(hour: 9, minute: 0),
+  ];
   String _selectedColor = '#53B5EA';
 
   final List<String> _colorOptions = [
@@ -49,8 +51,7 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
     );
     if (widget.goal != null) {
       _targetMinutes = widget.goal!.targetMinutes;
-      _reminderHour = widget.goal!.reminderTimeHour;
-      _reminderMinute = widget.goal!.reminderTimeMinute;
+      _reminderTimes = List.from(widget.goal!.activeReminderTimes);
       _selectedColor = widget.goal!.colorHex;
     }
   }
@@ -65,6 +66,34 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
 
   Color _parseHex(String hex) {
     return Color(int.parse('ff${hex.replaceFirst('#', '')}', radix: 16));
+  }
+
+  void _addReminderTime() async {
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 18, minute: 0),
+    );
+
+    if (pickedTime != null) {
+      final newTime = ReminderTimeModel(
+        hour: pickedTime.hour,
+        minute: pickedTime.minute,
+      );
+
+      if (!_reminderTimes.contains(newTime)) {
+        setState(() {
+          _reminderTimes.add(newTime);
+        });
+      }
+    }
+  }
+
+  void _removeReminderTime(int index) {
+    if (_reminderTimes.length > 1) {
+      setState(() {
+        _reminderTimes.removeAt(index);
+      });
+    }
   }
 
   @override
@@ -182,6 +211,52 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
               ),
               const SizedBox(height: 16),
 
+              // Reminder Time Slots Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Daily Scheduled Reminder Times',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addReminderTime,
+                    icon: const Icon(Icons.add_alarm, size: 16, color: AppTheme.accentCyan),
+                    label: const Text('Add Time',
+                        style: TextStyle(fontSize: 12.5, color: AppTheme.accentCyan)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _reminderTimes.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final time = entry.value;
+
+                  return Chip(
+                    backgroundColor: AppTheme.backgroundStart,
+                    side: const BorderSide(color: AppTheme.borderOutline),
+                    labelStyle: const TextStyle(color: Colors.white, fontSize: 13),
+                    avatar: const Icon(Icons.notifications_active,
+                        size: 15, color: AppTheme.accentCyan),
+                    label: Text(time.formattedTime),
+                    deleteIcon: _reminderTimes.length > 1
+                        ? const Icon(Icons.close, size: 15, color: AppTheme.textMuted)
+                        : null,
+                    onDeleted: _reminderTimes.length > 1
+                        ? () => _removeReminderTime(index)
+                        : null,
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 18),
+
               // Motivational Quote
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -286,13 +361,15 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
 
   void _saveGoal() {
     if (_formKey.currentState!.validate()) {
+      final firstTime = _reminderTimes.first;
       final goal = GoalModel(
         id: widget.goal?.id ?? const Uuid().v4(),
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         targetMinutes: _targetMinutes,
-        reminderTimeHour: _reminderHour,
-        reminderTimeMinute: _reminderMinute,
+        reminderTimeHour: firstTime.hour,
+        reminderTimeMinute: firstTime.minute,
+        reminderTimes: _reminderTimes,
         motivationalQuote: _quoteController.text.trim(),
         colorHex: _selectedColor,
         createdAt: widget.goal?.createdAt ?? DateTime.now(),
