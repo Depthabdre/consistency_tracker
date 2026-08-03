@@ -17,7 +17,7 @@ void main() {
     id: 'goal_a',
     title: 'Flutter Coding 🎯',
     description: 'Build consistency tracker features',
-    targetMinutes: 30,
+    targetMinutes: 25,
     reminderTimeHour: 9,
     reminderTimeMinute: 0,
     motivationalQuote: 'Keep coding!',
@@ -46,6 +46,50 @@ void main() {
     goalBloc = GoalBloc(goalRepository: mockGoalRepository);
   });
 
+  group('Integration - Defect Prevention (1 min + 2 min = 3 min)', () {
+    test('TC-P0-01 (Defect Fix): Goal with 1 min existing progress + 2 min focus session stop = EXACTLY 3/25 mins (NOT 26/25)', () async {
+      // 1. Initial Load
+      goalBloc.add(const LoadGoalsEvent());
+      await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
+
+      // 2. Initial state has 1 minute logged today
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 1));
+      await expectLater(
+        goalBloc.stream,
+        emitsThrough(
+          isA<GoalLoadedState>().having(
+            (s) => s.todayMinutesByGoalId['goal_a'],
+            'Goal A initial progress',
+            equals(1),
+          ),
+        ),
+      );
+
+      // 3. User starts a 25m session and stops after 2 minutes -> cumulative = 1 + 2 = 3
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 3));
+      await expectLater(
+        goalBloc.stream,
+        emitsThrough(
+          isA<GoalLoadedState>().having(
+            (s) => s.todayMinutesByGoalId['goal_a'],
+            'Goal A cumulative progress',
+            equals(3),
+          ),
+        ),
+      );
+
+      final state = goalBloc.state as GoalLoadedState;
+
+      // Assert Goal A has EXACTLY 3 minutes focused (3 / 25 mins) -> NOT completed!
+      final goalAMins = state.todayMinutesByGoalId['goal_a'] ?? 0;
+      expect(goalAMins, equals(3));
+      expect(goalAMins >= goalA.targetMinutes, isFalse);
+
+      // Assert Goal B remains untouched at 0 mins
+      expect(state.todayMinutesByGoalId['goal_b'] ?? 0, equals(0));
+    });
+  });
+
   group('Integration - Positive Multi-Goal Focus Isolation', () {
     test('Focusing 1 minute on Goal A updates ONLY Goal A and leaves Goal B at 0', () async {
       goalBloc.add(const LoadGoalsEvent());
@@ -68,18 +112,18 @@ void main() {
       expect(state.todayMinutesByGoalId['goal_b'] ?? 0, equals(0));
     });
 
-    test('Completing Goal A target (30 mins) completes ONLY Goal A', () async {
+    test('Completing Goal A target (25 mins) completes ONLY Goal A', () async {
       goalBloc.add(const LoadGoalsEvent());
       await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
 
-      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 30));
+      goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 25));
       await expectLater(
         goalBloc.stream,
         emitsThrough(
           isA<GoalLoadedState>().having(
             (s) => s.todayMinutesByGoalId['goal_a'],
             'Goal A progress',
-            equals(30),
+            equals(25),
           ),
         ),
       );
@@ -108,7 +152,6 @@ void main() {
       );
 
       final state = goalBloc.state as GoalLoadedState;
-      // Existing goals remain unaffected
       expect(state.todayMinutesByGoalId['goal_a'] ?? 0, equals(0));
       expect(state.todayMinutesByGoalId['goal_b'] ?? 0, equals(0));
     });
@@ -139,7 +182,6 @@ void main() {
       goalBloc.add(const LoadGoalsEvent());
       await expectLater(goalBloc.stream, emitsThrough(isA<GoalLoadedState>()));
 
-      // Rapidly dispatch multiple conflicting events
       goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 5));
       goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_b', todayMinutes: 10));
       goalBloc.add(const UpdateGoalProgressEvent(goalId: 'goal_a', todayMinutes: 20));
