@@ -11,7 +11,7 @@ void main() {
   late GoalRepository repository;
   late MockGoalLocalDataSource mockLocalDataSource;
 
-  const testGoal = GoalModel(
+  final testGoal = GoalModel(
     id: '1',
     title: 'Daily Reading',
     description: 'Read 20 pages',
@@ -20,6 +20,7 @@ void main() {
     reminderTimeMinute: 30,
     motivationalQuote: 'Readers are leaders.',
     colorHex: '#10B981',
+    createdAt: DateTime(2026, 8, 1),
   );
 
   setUpAll(() {

@@ -295,6 +295,7 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
         reminderTimeMinute: _reminderMinute,
         motivationalQuote: _quoteController.text.trim(),
         colorHex: _selectedColor,
+        createdAt: widget.goal?.createdAt ?? DateTime.now(),
       );
 
       Navigator.pop(context, goal);

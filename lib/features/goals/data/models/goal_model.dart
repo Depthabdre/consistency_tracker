@@ -9,6 +9,7 @@ class GoalModel extends Equatable {
   final int reminderTimeMinute;
   final String motivationalQuote;
   final String colorHex;
+  final DateTime createdAt;
   final bool isActive;
 
   const GoalModel({
@@ -20,6 +21,7 @@ class GoalModel extends Equatable {
     required this.reminderTimeMinute,
     required this.motivationalQuote,
     required this.colorHex,
+    required this.createdAt,
     this.isActive = true,
   });
 
@@ -33,6 +35,7 @@ class GoalModel extends Equatable {
       'reminderTimeMinute': reminderTimeMinute,
       'motivationalQuote': motivationalQuote,
       'colorHex': colorHex,
+      'createdAt': createdAt.toIso8601String(),
       'isActive': isActive,
     };
   }
@@ -47,6 +50,9 @@ class GoalModel extends Equatable {
       reminderTimeMinute: json['reminderTimeMinute'] as int? ?? 0,
       motivationalQuote: json['motivationalQuote'] as String? ?? '',
       colorHex: json['colorHex'] as String? ?? '#6366F1',
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
     );
   }
@@ -60,6 +66,7 @@ class GoalModel extends Equatable {
     int? reminderTimeMinute,
     String? motivationalQuote,
     String? colorHex,
+    DateTime? createdAt,
     bool? isActive,
   }) {
     return GoalModel(
@@ -71,6 +78,7 @@ class GoalModel extends Equatable {
       reminderTimeMinute: reminderTimeMinute ?? this.reminderTimeMinute,
       motivationalQuote: motivationalQuote ?? this.motivationalQuote,
       colorHex: colorHex ?? this.colorHex,
+      createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -85,6 +93,7 @@ class GoalModel extends Equatable {
         reminderTimeMinute,
         motivationalQuote,
         colorHex,
+        createdAt,
         isActive,
       ];
 }

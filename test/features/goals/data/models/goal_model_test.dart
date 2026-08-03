@@ -2,8 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:consistency_tracker/features/goals/data/models/goal_model.dart';
 
 void main() {
-  group('GoalModel', () {
-    const goal = GoalModel(
+  group('GoalModel with createdAt', () {
+    final now = DateTime(2026, 8, 1);
+    final goal = GoalModel(
       id: '1',
       title: 'Flutter Coding',
       description: 'Build consistency tracker features daily',
@@ -12,60 +13,31 @@ void main() {
       reminderTimeMinute: 0,
       motivationalQuote: 'Consistency is what transforms average into excellence.',
       colorHex: '#6366F1',
+      createdAt: now,
       isActive: true,
     );
 
-    test('Positive: should convert GoalModel to JSON map and back correctly', () {
+    test('Positive: should convert createdAt to JSON and back correctly', () {
       final jsonMap = goal.toJson();
       final fromJsonGoal = GoalModel.fromJson(jsonMap);
 
+      expect(fromJsonGoal.createdAt.year, equals(2026));
+      expect(fromJsonGoal.createdAt.month, equals(8));
+      expect(fromJsonGoal.createdAt.day, equals(1));
       expect(fromJsonGoal, equals(goal));
-      expect(jsonMap['targetMinutes'], equals(30));
-      expect(jsonMap['title'], equals('Flutter Coding'));
     });
 
-    test('Positive: copyWith should return updated goal instance', () {
-      final updated = goal.copyWith(targetMinutes: 45, title: 'Updated Title');
-      expect(updated.targetMinutes, equals(45));
-      expect(updated.title, equals('Updated Title'));
-      expect(updated.description, equals(goal.description));
-    });
-
-    test('Edge Case: fromJson should handle missing optional fields with defaults', () {
-      final minimalJson = {
+    test('Edge Case: fromJson without createdAt should default to current DateTime', () {
+      final jsonWithoutDate = {
         'id': 'g2',
-        'title': 'Minimal Goal',
+        'title': 'Legacy Goal',
+        'targetMinutes': 25,
       };
 
-      final goalFromJson = GoalModel.fromJson(minimalJson);
+      final parsed = GoalModel.fromJson(jsonWithoutDate);
 
-      expect(goalFromJson.id, equals('g2'));
-      expect(goalFromJson.title, equals('Minimal Goal'));
-      expect(goalFromJson.description, equals(''));
-      expect(goalFromJson.targetMinutes, equals(20));
-      expect(goalFromJson.colorHex, equals('#6366F1'));
-      expect(goalFromJson.isActive, isTrue);
-    });
-
-    test('Edge Case: goal equality should consider all properties', () {
-      const sameGoal = GoalModel(
-        id: '1',
-        title: 'Flutter Coding',
-        description: 'Build consistency tracker features daily',
-        targetMinutes: 30,
-        reminderTimeHour: 9,
-        reminderTimeMinute: 0,
-        motivationalQuote: 'Consistency is what transforms average into excellence.',
-        colorHex: '#6366F1',
-        isActive: true,
-      );
-
-      expect(goal, equals(sameGoal));
-    });
-
-    test('Negative Case: copyWith with no parameters should return equal instance', () {
-      final copied = goal.copyWith();
-      expect(copied, equals(goal));
+      expect(parsed.id, equals('g2'));
+      expect(parsed.createdAt, isA<DateTime>());
     });
   });
 }

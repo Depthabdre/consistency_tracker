@@ -15,7 +15,7 @@ void main() {
   late GoalBloc goalBloc;
   late MockGoalRepository mockGoalRepository;
 
-  const testGoal = GoalModel(
+  final testGoal = GoalModel(
     id: '1',
     title: 'Daily Flutter',
     description: 'Build consistency tracker app',
@@ -24,6 +24,7 @@ void main() {
     reminderTimeMinute: 0,
     motivationalQuote: 'Keep building!',
     colorHex: '#6366F1',
+    createdAt: DateTime(2026, 8, 1),
   );
 
   setUpAll(() {
@@ -43,13 +44,13 @@ void main() {
     'Positive: emits [GoalLoadingState, GoalLoadedState] when LoadGoalsEvent succeeds',
     build: () {
       when(() => mockGoalRepository.getGoals())
-          .thenAnswer((_) async => const Result.success([testGoal]));
+          .thenAnswer((_) async => Result.success([testGoal]));
       return goalBloc;
     },
     act: (bloc) => bloc.add(const LoadGoalsEvent()),
     expect: () => [
       const GoalLoadingState(),
-      const GoalLoadedState([testGoal]),
+      GoalLoadedState([testGoal]),
     ],
     verify: (_) {
       verify(() => mockGoalRepository.getGoals()).called(1);
@@ -77,13 +78,13 @@ void main() {
       when(() => mockGoalRepository.saveGoal(any()))
           .thenAnswer((_) async => const Result.success(true));
       when(() => mockGoalRepository.getGoals())
-          .thenAnswer((_) async => const Result.success([testGoal]));
+          .thenAnswer((_) async => Result.success([testGoal]));
       return goalBloc;
     },
-    act: (bloc) => bloc.add(const AddGoalEvent(testGoal)),
+    act: (bloc) => bloc.add(AddGoalEvent(testGoal)),
     expect: () => [
       const GoalLoadingState(),
-      const GoalLoadedState([testGoal]),
+      GoalLoadedState([testGoal]),
     ],
     verify: (_) {
       verify(() => mockGoalRepository.saveGoal(testGoal)).called(1);
@@ -99,7 +100,7 @@ void main() {
       );
       return goalBloc;
     },
-    act: (bloc) => bloc.add(const AddGoalEvent(testGoal)),
+    act: (bloc) => bloc.add(AddGoalEvent(testGoal)),
     expect: () => [
       const GoalLoadingState(),
       const GoalErrorState('Save failed'),
