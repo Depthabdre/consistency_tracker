@@ -121,16 +121,18 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
         ? (calendarBloc.state as CalendarLoadedState).entries
         : <CalendarDayModel>[];
 
-    // Calculate cumulative minutes focused today for this goal
-    int cumulativeToday = state.totalMinutesCompleted;
+    // Find existing minutes focused today for this goal
+    int previousTodayMinutes = 0;
     for (final entry in currentEntries) {
       if (entry.date.year == today.year &&
           entry.date.month == today.month &&
           entry.date.day == today.day) {
-        cumulativeToday += entry.totalMinutesFocused;
+        previousTodayMinutes = entry.totalMinutesFocused;
+        break;
       }
     }
 
+    final cumulativeToday = previousTodayMinutes + state.totalMinutesCompleted;
     final isTargetMet = cumulativeToday >= widget.goal.targetMinutes;
 
     final updatedDay = CalendarDayModel(
@@ -147,11 +149,15 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
       ),
     );
 
-    // Celebratory dialog
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.surfaceCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppTheme.borderOutline, width: 1.2),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -169,18 +175,18 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
             ),
             const SizedBox(height: 18),
             Text(
-              isTargetMet ? 'Daily Target Completed!' : 'Focus Session Logged!',
+              isTargetMet ? 'Daily Target Completed!' : 'Focus Session Saved!',
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               isTargetMet
-                  ? 'Awesome job! You reached your daily target of ${widget.goal.targetMinutes} minutes. Today is ticked on your calendar!'
-                  : 'You focused for ${state.totalMinutesCompleted} minutes today ($cumulativeToday / ${widget.goal.targetMinutes} mins total). Keep going to complete today\'s tick!',
+                  ? 'Awesome job! You reached your daily target of ${widget.goal.targetMinutes} minutes! Today is marked green on your calendar.'
+                  : 'You focused for ${state.totalMinutesCompleted} mins ($cumulativeToday / ${widget.goal.targetMinutes} mins focused today). Keep going to reach today\'s target!',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 14,
@@ -554,7 +560,9 @@ class _ActiveSessionContent extends StatelessWidget {
                     context.read<FocusTimerBloc>().add(const ResumeFocusTimerEvent());
                   },
                   onStop: () {
-                    context.read<FocusTimerBloc>().add(const CompleteFocusTimerEvent());
+                    context.read<FocusTimerBloc>().add(
+                          CompleteFocusTimerEvent(elapsedSeconds: elapsedSeconds),
+                        );
                   },
                 ),
               ],
