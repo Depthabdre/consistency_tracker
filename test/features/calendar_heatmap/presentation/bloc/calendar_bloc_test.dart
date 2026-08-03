@@ -13,30 +13,90 @@ void main() {
   late CalendarBloc bloc;
   late MockCalendarRepository mockRepository;
 
+  setUpAll(() {
+    registerFallbackValue(CalendarDayModel(
+      date: DateTime.now(),
+      totalMinutesFocused: 30,
+      targetMinutes: 30,
+      isCompleted: true,
+    ));
+  });
+
   setUp(() {
     mockRepository = MockCalendarRepository();
     bloc = CalendarBloc(calendarRepository: mockRepository);
   });
 
-  final testDay = CalendarDayModel(
-    date: DateTime.now(),
+  final today = DateTime.now();
+
+  final testDayCompleted = CalendarDayModel(
+    date: today,
     totalMinutesFocused: 30,
     targetMinutes: 30,
     isCompleted: true,
   );
 
-  test('LoadCalendarEntriesEvent emits CalendarLoadedState with correct streak', () async {
-    when(() => mockRepository.getCalendarEntries('g1'))
-        .thenAnswer((_) async => Result.success([testDay]));
+  final yesterdayCompleted = CalendarDayModel(
+    date: today.subtract(const Duration(days: 1)),
+    totalMinutesFocused: 30,
+    targetMinutes: 30,
+    isCompleted: true,
+  );
 
-    bloc.add(const LoadCalendarEntriesEvent('g1'));
+  group('CalendarBloc', () {
+    test('Positive: LoadCalendarEntriesEvent emits CalendarLoadedState with correct streak', () async {
+      when(() => mockRepository.getCalendarEntries('g1'))
+          .thenAnswer((_) async => Result.success([testDayCompleted, yesterdayCompleted]));
 
-    expect(
-      bloc.stream,
-      emitsInOrder([
-        const CalendarLoadingState(),
-        CalendarLoadedState(entries: [testDay], currentStreak: 1),
-      ]),
-    );
+      bloc.add(const LoadCalendarEntriesEvent('g1'));
+
+      expect(
+        bloc.stream,
+        emitsInOrder([
+          const CalendarLoadingState(),
+          CalendarLoadedState(entries: [testDayCompleted, yesterdayCompleted], currentStreak: 2),
+        ]),
+      );
+    });
+
+    test('Edge Case: empty entries list should return 0 streak', () async {
+      when(() => mockRepository.getCalendarEntries('g1'))
+          .thenAnswer((_) async => const Result.success([]));
+
+      bloc.add(const LoadCalendarEntriesEvent('g1'));
+
+      expect(
+        bloc.stream,
+        emitsInOrder([
+          const CalendarLoadingState(),
+          const CalendarLoadedState(entries: [], currentStreak: 0),
+        ]),
+      );
+    });
+
+    test('Positive: ToggleCalendarDayTickEvent toggles day completion and reloads entries', () async {
+      when(() => mockRepository.saveCalendarDay('g1', any()))
+          .thenAnswer((_) async => const Result.success(true));
+      when(() => mockRepository.getCalendarEntries('g1'))
+          .thenAnswer((_) async => Result.success([testDayCompleted]));
+
+      bloc.add(ToggleCalendarDayTickEvent(
+        goalId: 'g1',
+        day: CalendarDayModel(
+          date: today,
+          totalMinutesFocused: 0,
+          targetMinutes: 30,
+          isCompleted: false,
+        ),
+      ));
+
+      expect(
+        bloc.stream,
+        emitsInOrder([
+          const CalendarLoadingState(),
+          CalendarLoadedState(entries: [testDayCompleted], currentStreak: 1),
+        ]),
+      );
+    });
   });
 }
