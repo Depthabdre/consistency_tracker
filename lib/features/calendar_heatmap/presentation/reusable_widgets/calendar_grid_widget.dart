@@ -46,8 +46,25 @@ class CalendarGridWidget extends StatelessWidget {
     final startDateOnly = DateTime(goalStartDate.year, goalStartDate.month, goalStartDate.day);
 
     final daysInMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
-    final firstWeekday = DateTime(currentMonth.year, currentMonth.month, 1).weekday;
-    final totalCells = daysInMonth + (firstWeekday - 1);
+
+    // Collect all valid dates for current month that are ON OR AFTER goalStartDate
+    final List<DateTime> validDates = [];
+    for (int day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(currentMonth.year, currentMonth.month, day);
+      final cellDate = DateTime(date.year, date.month, date.day);
+      if (!cellDate.isBefore(startDateOnly)) {
+        validDates.add(date);
+      }
+    }
+
+    if (validDates.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // First weekday offset for the earliest rendered date in this view
+    final firstRenderedDate = validDates.first;
+    final firstWeekday = firstRenderedDate.weekday;
+    final totalCells = validDates.length + (firstWeekday - 1);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -73,7 +90,7 @@ class CalendarGridWidget extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Days Grid
+          // Days Grid starting strictly from goalStartDate
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -88,47 +105,35 @@ class CalendarGridWidget extends StatelessWidget {
                 return const SizedBox.shrink();
               }
 
-              final dayNumber = index - (firstWeekday - 1) + 1;
-              final date = DateTime(currentMonth.year, currentMonth.month, dayNumber);
+              final dateIndex = index - (firstWeekday - 1);
+              final date = validDates[dateIndex];
               final cellDate = DateTime(date.year, date.month, date.day);
+              final dayNumber = date.day;
 
-              final isBeforeStart = cellDate.isBefore(startDateOnly);
               final isToday = _isSameDay(cellDate, today);
-              final isPastAfterStart = _isBeforeDay(cellDate, today) && !isBeforeStart;
+              final isPastAfterStart = _isBeforeDay(cellDate, today);
 
               final entry = _findEntryForDay(date);
               final focusedMins = entry?.totalMinutesFocused ?? 0;
               final isCompleted = focusedMins >= targetMinutes;
               final isMissedPastDay = isPastAfterStart && !isCompleted;
 
-              // Grid cell styling based on exact state rules
               Color cellBgColor = const Color(0xFF262626);
               Color cellBorderColor = const Color(0xFF3A3A3A);
               Widget cellContent;
 
-              if (isBeforeStart) {
-                // Rule 1: Days before goal start date are disabled non-interactive
-                cellBgColor = const Color(0xFF1E1E1E);
-                cellBorderColor = const Color(0xFF2A2A2A);
-                cellContent = Text(
-                  '$dayNumber',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF4A4A4A),
-                  ),
-                );
-              } else if (isCompleted) {
-                // Rule 2: Green checkmark ONLY when targetMinutes is met
+              if (isCompleted) {
+                // Rule: Green checkmark ONLY when targetMinutes is met
                 cellBgColor = AppTheme.successGreen;
                 cellBorderColor = AppTheme.successGreen;
                 cellContent = const Icon(Icons.check, size: 18, color: Colors.black);
               } else if (isMissedPastDay) {
-                // Rule 3: Missed past day after goal start date shows X icon
+                // Rule: Missed past day after goal start date shows X icon
                 cellBgColor = const Color(0xFF3A2024);
                 cellBorderColor = const Color(0xFFF43F5E);
                 cellContent = const Icon(Icons.close, size: 16, color: Color(0xFFF43F5E));
               } else if (isToday) {
-                // Rule 4: Today cell with progress cyan border
+                // Rule: Today cell with cyan progress border
                 cellBgColor = AppTheme.accentCyan.withValues(alpha: 0.15);
                 cellBorderColor = AppTheme.accentCyan;
                 cellContent = Column(
@@ -153,7 +158,7 @@ class CalendarGridWidget extends StatelessWidget {
                   ],
                 );
               } else {
-                // Rule 5: Future days after today
+                // Rule: Future day after today
                 cellContent = Text(
                   '$dayNumber',
                   style: const TextStyle(
@@ -164,18 +169,16 @@ class CalendarGridWidget extends StatelessWidget {
               }
 
               return GestureDetector(
-                onTap: isBeforeStart
-                    ? null
-                    : () {
-                        final targetDay = entry ??
-                            CalendarDayModel(
-                              date: date,
-                              totalMinutesFocused: 0,
-                              targetMinutes: targetMinutes,
-                              isCompleted: false,
-                            );
-                        onDayTap(targetDay);
-                      },
+                onTap: () {
+                  final targetDay = entry ??
+                      CalendarDayModel(
+                        date: date,
+                        totalMinutesFocused: 0,
+                        targetMinutes: targetMinutes,
+                        isCompleted: false,
+                      );
+                  onDayTap(targetDay);
+                },
                 child: Container(
                   decoration: BoxDecoration(
                     color: cellBgColor,
