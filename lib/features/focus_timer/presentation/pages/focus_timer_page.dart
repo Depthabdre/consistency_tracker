@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -11,6 +10,7 @@ import '../bloc/focus_timer_bloc.dart';
 import '../bloc/focus_timer_event.dart';
 import '../bloc/focus_timer_state.dart';
 import '../reusable_widgets/circular_timer_widget.dart';
+import '../reusable_widgets/timer_controls.dart';
 
 class FocusTimerPage extends StatefulWidget {
   final GoalModel goal;
@@ -521,23 +521,16 @@ class _ActiveSessionContent extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 24, right: 24, top: 52, bottom: 28),
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 48, bottom: 28),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 LayoutBuilder(builder: (context, constraints) {
-                  final Size screenSize = MediaQuery.sizeOf(context);
-                  final double size = math
-                      .min(
-                        constraints.maxWidth * 0.75,
-                        screenSize.height * 0.45,
-                      )
-                      .clamp(140.0, 360.0);
-
                   return CircularProgressTimer(
                     remainingSeconds: remainingSeconds,
                     totalSeconds: totalTargetSeconds,
-                    size: size,
+                    phaseType: SessionPhaseType.focus,
+                    size: 260.0,
                   );
                 }),
                 const SizedBox(height: 24),
@@ -551,70 +544,18 @@ class _ActiveSessionContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
 
-                // Controls
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (!isPaused)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          context
-                              .read<FocusTimerBloc>()
-                              .add(const PauseFocusTimerEvent());
-                        },
-                        icon: const Icon(Icons.pause, size: 18),
-                        label: const Text('Pause'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0xFF4F4F4F)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                      )
-                    else
-                      FilledButton.icon(
-                        onPressed: () {
-                          context
-                              .read<FocusTimerBloc>()
-                              .add(const ResumeFocusTimerEvent());
-                        },
-                        icon: const Icon(Icons.play_arrow,
-                            size: 18, color: Colors.black),
-                        label: const Text('Resume'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.accentCyan,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(width: 14),
-                    FilledButton.icon(
-                      onPressed: () {
-                        context
-                            .read<FocusTimerBloc>()
-                            .add(const CompleteFocusTimerEvent());
-                      },
-                      icon: const Icon(Icons.check,
-                          size: 18, color: Colors.black),
-                      label: const Text('Finish Session'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.accentCyan,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                    ),
-                  ],
+                // Timer Controls
+                TimerControls(
+                  isPaused: isPaused,
+                  onPause: () {
+                    context.read<FocusTimerBloc>().add(const PauseFocusTimerEvent());
+                  },
+                  onResume: () {
+                    context.read<FocusTimerBloc>().add(const ResumeFocusTimerEvent());
+                  },
+                  onStop: () {
+                    context.read<FocusTimerBloc>().add(const CompleteFocusTimerEvent());
+                  },
                 ),
               ],
             ),
