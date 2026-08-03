@@ -1,9 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../calendar_heatmap/data/models/calendar_day_model.dart';
 import '../../../calendar_heatmap/presentation/bloc/calendar_bloc.dart';
 import '../../../calendar_heatmap/presentation/bloc/calendar_event.dart';
+import '../../../calendar_heatmap/presentation/bloc/calendar_state.dart';
 import '../../../goals/data/models/goal_model.dart';
 import '../bloc/focus_timer_bloc.dart';
 import '../bloc/focus_timer_event.dart';
@@ -20,203 +22,132 @@ class FocusTimerPage extends StatefulWidget {
 }
 
 class _FocusTimerPageState extends State<FocusTimerPage> {
+  late int _selectedMinutes;
+
   @override
   void initState() {
     super.initState();
-    context.read<FocusTimerBloc>().add(
-          StartFocusTimerEvent(
-            goalId: widget.goal.id,
-            targetMinutes: widget.goal.targetMinutes,
-          ),
-        );
-  }
-
-  Color _parseHex(String hex) {
-    try {
-      return Color(int.parse('ff${hex.replaceFirst('#', '')}', radix: 16));
-    } catch (_) {
-      return AppTheme.primary;
-    }
+    _selectedMinutes = widget.goal.targetMinutes;
   }
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = _parseHex(widget.goal.colorHex);
-
     return Scaffold(
+      backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
         title: Text(widget.goal.title),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {},
-          ),
-        ],
       ),
-      body: BlocConsumer<FocusTimerBloc, FocusTimerState>(
-        listener: (context, state) {
-          if (state is FocusTimerCompletedState) {
-            _handleCompletedSession(context, state);
-          }
-        },
-        builder: (context, state) {
-          int elapsedSeconds = 0;
-          bool isRunning = false;
-          bool isTargetReached = false;
-
-          if (state is FocusTimerRunningState) {
-            elapsedSeconds = state.elapsedSeconds;
-            isRunning = true;
-            isTargetReached = state.isTargetReached;
-          } else if (state is FocusTimerPausedState) {
-            elapsedSeconds = state.elapsedSeconds;
-            isRunning = false;
-            isTargetReached = elapsedSeconds >= (widget.goal.targetMinutes * 60);
-          }
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              children: [
-                // Target Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: accentColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isTargetReached ? Icons.stars : Icons.timer,
-                        color: isTargetReached ? AppTheme.success : accentColor,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isTargetReached
-                            ? 'Target Target Met! Keep compounding!'
-                            : '${widget.goal.targetMinutes} Mins Focus Goal',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: isTargetReached ? AppTheme.success : accentColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 36),
-
-                // Circular Timer Widget
-                CircularTimerWidget(
-                  elapsedSeconds: elapsedSeconds,
-                  targetMinutes: widget.goal.targetMinutes,
-                  isRunning: isRunning,
-                  accentColor: accentColor,
-                ),
-                const SizedBox(height: 40),
-
-                // Motivational Quote Card
-                if (widget.goal.motivationalQuote.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.format_quote, size: 24, color: AppTheme.primary),
-                        const SizedBox(height: 8),
-                        Text(
-                          '"${widget.goal.motivationalQuote}"',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontStyle: FontStyle.italic,
-                            color: AppTheme.textPrimary,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 40),
-
-                // Timer Controls (Play, Pause, Complete)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isRunning)
-                      FloatingActionButton.large(
-                        heroTag: 'pause',
-                        onPressed: () {
-                          context.read<FocusTimerBloc>().add(const PauseFocusTimerEvent());
-                        },
-                        backgroundColor: AppTheme.warning,
-                        child: const Icon(Icons.pause, size: 36),
-                      )
-                    else
-                      FloatingActionButton.large(
-                        heroTag: 'play',
-                        onPressed: () {
-                          context.read<FocusTimerBloc>().add(const ResumeFocusTimerEvent());
-                        },
-                        backgroundColor: accentColor,
-                        child: const Icon(Icons.play_arrow, size: 36),
-                      ),
-                    const SizedBox(width: 24),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        context
-                            .read<FocusTimerBloc>()
-                            .add(const CompleteFocusTimerEvent());
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth < 600 ? 460 : 700;
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    child: BlocConsumer<FocusTimerBloc, FocusTimerState>(
+                      listener: (context, state) {
+                        if (state is FocusTimerCompletedState) {
+                          _handleCompletedSession(context, state);
+                        }
                       },
-                      icon: const Icon(Icons.check_circle_outline, size: 22),
-                      label: const Text('Finish & Log Session'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
+                      builder: (context, timerState) {
+                        final bool isRunningOrPaused =
+                            timerState is FocusTimerRunningState ||
+                                timerState is FocusTimerPausedState;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: isRunningOrPaused
+                                    ? _ActiveSessionContent(
+                                        goal: widget.goal,
+                                        timerState: timerState,
+                                      )
+                                    : _NoSessionContent(
+                                        goal: widget.goal,
+                                        selectedMinutes: _selectedMinutes,
+                                        onMinutesChanged: (newMins) {
+                                          setState(() => _selectedMinutes = newMins);
+                                        },
+                                        onMinusTap: () {
+                                          setState(() {
+                                            _selectedMinutes =
+                                                (_selectedMinutes - 5).clamp(5, 720);
+                                          });
+                                        },
+                                        onPlusTap: () {
+                                          setState(() {
+                                            _selectedMinutes =
+                                                (_selectedMinutes + 5).clamp(5, 720);
+                                          });
+                                        },
+                                        onStartTap: () {
+                                          context.read<FocusTimerBloc>().add(
+                                                StartFocusTimerEvent(
+                                                  goalId: widget.goal.id,
+                                                  targetMinutes: _selectedMinutes,
+                                                ),
+                                              );
+                                        },
+                                      ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ],
+                  ),
                 ),
-              ],
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
 
-  void _handleCompletedSession(BuildContext context, FocusTimerCompletedState state) {
-    // Automatically update today's entry on the calendar heatmap!
+  void _handleCompletedSession(
+      BuildContext context, FocusTimerCompletedState state) {
     final today = DateTime.now();
-    final todayCalendarDay = CalendarDayModel(
+    final calendarBloc = context.read<CalendarBloc>();
+    final currentEntries = calendarBloc.state is CalendarLoadedState
+        ? (calendarBloc.state as CalendarLoadedState).entries
+        : <CalendarDayModel>[];
+
+    // Calculate cumulative minutes focused today for this goal
+    int cumulativeToday = state.totalMinutesCompleted;
+    for (final entry in currentEntries) {
+      if (entry.date.year == today.year &&
+          entry.date.month == today.month &&
+          entry.date.day == today.day) {
+        cumulativeToday += entry.totalMinutesFocused;
+      }
+    }
+
+    final isTargetMet = cumulativeToday >= widget.goal.targetMinutes;
+
+    final updatedDay = CalendarDayModel(
       date: today,
-      totalMinutesFocused: state.totalMinutesCompleted,
+      totalMinutesFocused: cumulativeToday,
       targetMinutes: widget.goal.targetMinutes,
-      isCompleted: true,
+      isCompleted: isTargetMet,
     );
 
-    context.read<CalendarBloc>().add(
-          ToggleCalendarDayTickEvent(
-            goalId: widget.goal.id,
-            day: todayCalendarDay,
-          ),
-        );
+    calendarBloc.add(
+      ToggleCalendarDayTickEvent(
+        goalId: widget.goal.id,
+        day: updatedDay,
+      ),
+    );
 
-    // Celebratory Dialog
+    // Celebratory dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -225,48 +156,470 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: AppTheme.success,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isTargetMet ? AppTheme.successGreen : AppTheme.accentCyan,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.emoji_events, size: 48, color: Colors.white),
+              child: Icon(
+                isTargetMet ? Icons.emoji_events : Icons.check,
+                size: 40,
+                color: Colors.black,
+              ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Focus Session Completed!',
-              style: TextStyle(
-                fontSize: 22,
+            const SizedBox(height: 18),
+            Text(
+              isTargetMet ? 'Daily Target Completed!' : 'Focus Session Logged!',
+              style: const TextStyle(
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'You completed ${state.totalMinutesCompleted} minutes of focus for ${widget.goal.title}.\nToday is automatically ticked on your calendar!',
+              isTargetMet
+                  ? 'Awesome job! You reached your daily target of ${widget.goal.targetMinutes} minutes. Today is ticked on your calendar!'
+                  : 'You focused for ${state.totalMinutesCompleted} minutes today ($cumulativeToday / ${widget.goal.targetMinutes} mins total). Keep going to complete today\'s tick!',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 14,
                 color: AppTheme.textSecondary,
+                height: 1.4,
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            SizedBox(
+              width: double.infinity,
+              height: 42,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  Navigator.pop(context);
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.accentCyan,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
+                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
-              child: const Text('Back to Targets', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NoSessionContent extends StatefulWidget {
+  final GoalModel goal;
+  final int selectedMinutes;
+  final ValueChanged<int> onMinutesChanged;
+  final VoidCallback onMinusTap;
+  final VoidCallback onPlusTap;
+  final VoidCallback onStartTap;
+
+  const _NoSessionContent({
+    required this.goal,
+    required this.selectedMinutes,
+    required this.onMinutesChanged,
+    required this.onMinusTap,
+    required this.onPlusTap,
+    required this.onStartTap,
+  });
+
+  @override
+  State<_NoSessionContent> createState() => _NoSessionContentState();
+}
+
+class _NoSessionContentState extends State<_NoSessionContent> {
+  bool _skipBreaks = false;
+  late TextEditingController _minutesController;
+  final FocusNode _minutesFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _minutesController =
+        TextEditingController(text: widget.selectedMinutes.toString());
+    _minutesFocusNode.addListener(() {
+      if (!_minutesFocusNode.hasFocus) {
+        _submitMinutes();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _NoSessionContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedMinutes != widget.selectedMinutes &&
+        !_minutesFocusNode.hasFocus) {
+      _minutesController.text = widget.selectedMinutes.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _minutesController.dispose();
+    _minutesFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _submitMinutes() {
+    final int? parsed = int.tryParse(_minutesController.text);
+    if (parsed != null && parsed > 0) {
+      widget.onMinutesChanged(parsed);
+    } else {
+      _minutesController.text = widget.selectedMinutes.toString();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderOutline, width: 1.2),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            'Ready, set, focus!',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 22,
+                ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Target for "${widget.goal.title}" is ${widget.goal.targetMinutes} minutes daily.\n'
+            'Tell us how much time you have for this session.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+          ),
+          const SizedBox(height: 36),
+
+          // Duration Stepper Box
+          Container(
+            width: 160,
+            height: 110,
+            decoration: BoxDecoration(
+              color: const Color(0xFF404040),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF4F4F4F)),
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      IntrinsicWidth(
+                        child: TextField(
+                          controller: _minutesController,
+                          focusNode: _minutesFocusNode,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          onSubmitted: (_) => _submitMinutes(),
+                          style: const TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white,
+                            height: 1,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'mins',
+                        style: TextStyle(
+                          color: Color(0xFFA0A0A0),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF383838),
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(8),
+                      bottomRight: Radius.circular(8),
+                    ),
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      Expanded(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: widget.onPlusTap,
+                            borderRadius:
+                                const BorderRadius.only(topRight: Radius.circular(8)),
+                            child: const Center(
+                              child: Icon(Icons.keyboard_arrow_up,
+                                  color: Color(0xFFE2E2E2), size: 28),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(height: 1, color: const Color(0xFF4F4F4F)),
+                      Expanded(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: widget.onMinusTap,
+                            borderRadius: const BorderRadius.only(
+                                bottomRight: Radius.circular(8)),
+                            child: const Center(
+                              child: Icon(Icons.keyboard_arrow_down,
+                                  color: Color(0xFFE2E2E2), size: 28),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Skip breaks toggle
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: _skipBreaks,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      _skipBreaks = value ?? false;
+                    });
+                  },
+                  fillColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppTheme.accentCyan;
+                    }
+                    return Colors.transparent;
+                  }),
+                  checkColor: Colors.black,
+                  side: const BorderSide(color: Color(0xFFA0A0A0), width: 1.5),
+                  shape:
+                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Continuous focus mode (no breaks)',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFFA0A0A0),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // Start Button
+          SizedBox(
+            height: 42,
+            child: FilledButton.icon(
+              onPressed: widget.onStartTap,
+              icon: const Icon(Icons.play_arrow, size: 20, color: Colors.black),
+              label: const Text('Start focus session'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.accentCyan,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveSessionContent extends StatelessWidget {
+  final GoalModel goal;
+  final FocusTimerState timerState;
+
+  const _ActiveSessionContent({
+    required this.goal,
+    required this.timerState,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    int elapsedSeconds = 0;
+    int targetMinutes = goal.targetMinutes;
+    bool isPaused = false;
+
+    if (timerState is FocusTimerRunningState) {
+      final s = timerState as FocusTimerRunningState;
+      elapsedSeconds = s.elapsedSeconds;
+      targetMinutes = s.targetMinutes;
+    } else if (timerState is FocusTimerPausedState) {
+      final s = timerState as FocusTimerPausedState;
+      elapsedSeconds = s.elapsedSeconds;
+      targetMinutes = s.targetMinutes;
+      isPaused = true;
+    }
+
+    final totalTargetSeconds = targetMinutes * 60;
+    final remainingSeconds = (totalTargetSeconds - elapsedSeconds).clamp(0, 99999);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderOutline, width: 1.2),
+      ),
+      child: Stack(
+        children: [
+          const Positioned(
+            top: 14,
+            left: 16,
+            child: Text(
+              'FOCUS PERIOD',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF8A8A8A),
+                fontSize: 11,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 52, bottom: 28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                LayoutBuilder(builder: (context, constraints) {
+                  final Size screenSize = MediaQuery.sizeOf(context);
+                  final double size = math
+                      .min(
+                        constraints.maxWidth * 0.75,
+                        screenSize.height * 0.45,
+                      )
+                      .clamp(140.0, 360.0);
+
+                  return CircularProgressTimer(
+                    remainingSeconds: remainingSeconds,
+                    totalSeconds: totalTargetSeconds,
+                    size: size,
+                  );
+                }),
+                const SizedBox(height: 24),
+                Text(
+                  isPaused ? 'Session Paused' : 'Focus session active',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Controls
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (!isPaused)
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          context
+                              .read<FocusTimerBloc>()
+                              .add(const PauseFocusTimerEvent());
+                        },
+                        icon: const Icon(Icons.pause, size: 18),
+                        label: const Text('Pause'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Color(0xFF4F4F4F)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: () {
+                          context
+                              .read<FocusTimerBloc>()
+                              .add(const ResumeFocusTimerEvent());
+                        },
+                        icon: const Icon(Icons.play_arrow,
+                            size: 18, color: Colors.black),
+                        label: const Text('Resume'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.accentCyan,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 14),
+                    FilledButton.icon(
+                      onPressed: () {
+                        context
+                            .read<FocusTimerBloc>()
+                            .add(const CompleteFocusTimerEvent());
+                      },
+                      icon: const Icon(Icons.check,
+                          size: 18, color: Colors.black),
+                      label: const Text('Finish Session'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.accentCyan,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

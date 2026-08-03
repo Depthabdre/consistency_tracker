@@ -1,136 +1,104 @@
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 
-class CircularTimerWidget extends StatelessWidget {
-  final int elapsedSeconds;
-  final int targetMinutes;
-  final bool isRunning;
-  final Color accentColor;
+class CircularProgressTimer extends StatelessWidget {
+  final int remainingSeconds;
+  final int totalSeconds;
+  final double size;
 
-  const CircularTimerWidget({
+  const CircularProgressTimer({
     super.key,
-    required this.elapsedSeconds,
-    required this.targetMinutes,
-    required this.isRunning,
-    this.accentColor = AppTheme.primary,
+    required this.remainingSeconds,
+    required this.totalSeconds,
+    this.size = 240,
   });
 
   String _formatTime(int seconds) {
-    final mins = seconds ~/ 60;
-    final secs = seconds % 60;
+    final mins = (seconds ~/ 60).clamp(0, 999);
+    final secs = (seconds % 60).clamp(0, 59);
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalTargetSeconds = targetMinutes * 60;
-    final progress = totalTargetSeconds > 0
-        ? (elapsedSeconds / totalTargetSeconds).clamp(0.0, 1.0)
+    final double progress = totalSeconds > 0
+        ? (remainingSeconds / totalSeconds).clamp(0.0, 1.0)
         : 0.0;
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Outer glowing shadow pulse
-        Container(
-          width: 260,
-          height: 260,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: isRunning
-                ? [
-                    BoxShadow(
-                      color: accentColor.withValues(alpha: 0.25),
-                      blurRadius: 36,
-                      spreadRadius: 6,
-                    ),
-                  ]
-                : [],
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size(size, size),
+            painter: _CircularProgressPainter(
+              progress: progress,
+              accentColor: AppTheme.accentCyan,
+            ),
           ),
-        ),
-        // Circular Progress Painter
-        CustomPaint(
-          size: const Size(250, 250),
-          painter: _TimerArcPainter(
-            progress: progress,
-            accentColor: accentColor,
-          ),
-        ),
-        // Timer Text Content inside ring
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _formatTime(elapsedSeconds),
-              style: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -1,
-                color: AppTheme.textPrimary,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _formatTime(remainingSeconds),
+                style: TextStyle(
+                  fontSize: (size * 0.22).clamp(24.0, 64.0),
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white,
+                  letterSpacing: -1,
+                  height: 1,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  progress >= 1.0 ? Icons.check_circle : Icons.flag_outlined,
-                  size: 16,
-                  color: progress >= 1.0 ? AppTheme.success : AppTheme.textMuted,
+              SizedBox(height: size * 0.04),
+              Text(
+                '${(totalSeconds ~/ 60)} mins goal',
+                style: TextStyle(
+                  fontSize: (size * 0.06).clamp(11.0, 14.0),
+                  color: const Color(0xFFA0A0A0),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'Target: ${targetMinutes}m',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: progress >= 1.0 ? AppTheme.success : AppTheme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _TimerArcPainter extends CustomPainter {
+class _CircularProgressPainter extends CustomPainter {
   final double progress;
   final Color accentColor;
 
-  _TimerArcPainter({required this.progress, required this.accentColor});
+  _CircularProgressPainter({required this.progress, required this.accentColor});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 12;
+    final strokeWidth = (size.width * 0.04).clamp(6.0, 14.0);
+    final radius = (size.width / 2) - strokeWidth;
 
     // Track Background Arc
     final backgroundPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.08)
+      ..color = const Color(0xFF404040)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = strokeWidth;
 
     canvas.drawCircle(center, radius, backgroundPaint);
 
-    // Active Progress Arc
+    // Active Remaining Progress Arc
     final activePaint = Paint()
-      ..shader = SweepGradient(
-        colors: [accentColor, accentColor.withValues(alpha: 0.6), accentColor],
-        transform: const GradientRotation(-pi / 2),
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..color = accentColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    final sweepAngle = 2 * pi * progress;
+    final sweepAngle = 2 * math.pi * progress;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -pi / 2,
+      -math.pi / 2,
       sweepAngle,
       false,
       activePaint,
@@ -138,7 +106,7 @@ class _TimerArcPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _TimerArcPainter oldDelegate) {
+  bool shouldRepaint(covariant _CircularProgressPainter oldDelegate) {
     return oldDelegate.progress != progress || oldDelegate.accentColor != accentColor;
   }
 }
