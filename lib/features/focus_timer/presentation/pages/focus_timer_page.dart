@@ -174,50 +174,61 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
           barrierDismissible: false,
           builder: (dialogContext) => AlertDialog(
             backgroundColor: AppTheme.surfaceCard,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               side: const BorderSide(color: AppTheme.borderOutline, width: 1.2),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
                     color: isTargetMet ? AppTheme.successGreen : AppTheme.accentCyan,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isTargetMet ? AppTheme.successGreen : AppTheme.accentCyan)
+                            .withValues(alpha: 0.25),
+                        blurRadius: 24,
+                        spreadRadius: 4,
+                      ),
+                    ],
                   ),
                   child: Icon(
                     isTargetMet ? Icons.emoji_events : Icons.check,
-                    size: 40,
+                    size: 44,
                     color: Colors.black,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
                 Text(
                   isTargetMet ? 'Daily Target Completed!' : 'Focus Session Saved!',
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
                     color: Colors.white,
+                    letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 Text(
                   isTargetMet
                       ? 'Awesome job! You reached your daily target of ${widget.goal.targetMinutes} minutes! Today is marked green on your calendar.'
                       : 'You focused for ${state.totalMinutesCompleted} mins ($cumulativeToday / ${widget.goal.targetMinutes} mins focused today). Keep going to reach today\'s target!',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                    height: 1.4,
+                    fontSize: 14.5,
+                    color: Color(0xFFD0D0D0),
+                    height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
-                  height: 42,
+                  height: 46,
                   child: FilledButton(
                     onPressed: () {
                       Navigator.pop(dialogContext);
@@ -229,8 +240,12 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
+                      textStyle: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text('Done'),
                   ),
                 ),
               ],
