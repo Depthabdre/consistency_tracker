@@ -10,6 +10,10 @@ coverage/
 doc/api/
 *.dart_tool
 
+# AI Agent Skills & Tooling
+.agents/
+skills-lock.json
+
 # Python
 __pycache__/
 *.pyc
