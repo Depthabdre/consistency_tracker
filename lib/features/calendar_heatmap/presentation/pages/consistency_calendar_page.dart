@@ -28,7 +28,14 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
     context.read<CalendarBloc>().add(LoadCalendarEntriesEvent(widget.goal.id));
   }
 
+  bool get _canNavigateBack {
+    final startMonth = DateTime(widget.goal.createdAt.year, widget.goal.createdAt.month);
+    final currentMonthView = DateTime(_displayedMonth.year, _displayedMonth.month);
+    return currentMonthView.isAfter(startMonth);
+  }
+
   void _changeMonth(int increment) {
+    if (increment < 0 && !_canNavigateBack) return;
     setState(() {
       _displayedMonth = DateTime(
         _displayedMonth.year,
@@ -40,6 +47,8 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
+    final formattedStartDate = DateFormat('MMM d, yyyy').format(widget.goal.createdAt);
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
@@ -81,6 +90,33 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                           return SingleChildScrollView(
                             child: Column(
                               children: [
+                                // Goal Start Date Header Badge
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceCard,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppTheme.borderOutline, width: 1.2),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.flag_outlined, size: 16, color: AppTheme.accentCyan),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Goal started on $formattedStartDate',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
                                 // Streak Counter
                                 StreakCounterWidget(
                                   currentStreak: state.currentStreak,
@@ -102,9 +138,15 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       IconButton(
-                                        icon: const Icon(Icons.chevron_left,
-                                            color: AppTheme.textPrimary),
-                                        onPressed: () => _changeMonth(-1),
+                                        icon: Icon(
+                                          Icons.chevron_left,
+                                          color: _canNavigateBack
+                                              ? AppTheme.textPrimary
+                                              : Colors.white24,
+                                        ),
+                                        onPressed: _canNavigateBack
+                                            ? () => _changeMonth(-1)
+                                            : null,
                                       ),
                                       Text(
                                         DateFormat('MMMM yyyy').format(_displayedMonth),
