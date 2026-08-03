@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "test-case-writing": {
+      "source": "naodeng/awesome-qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/en/testing-types/test-case-writing/SKILL.md",
+      "computedHash": "efb1e8d9d811e3ad71088f06c70cc492436f6cceff7999e22373545879dfa4e4"
+    },
     "test-driven-development": {
       "source": "obra/superpowers",
       "sourceType": "github",
