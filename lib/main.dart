@@ -27,17 +27,25 @@ import 'features/calendar_heatmap/presentation/pages/consistency_calendar_page.d
 import 'features/notifications/data/datasources/notification_local_datasource.dart';
 import 'features/notifications/data/repositories/notification_repository.dart';
 
+// Settings Feature
+import 'features/settings/data/datasources/settings_local_datasource.dart';
+import 'features/settings/data/repositories/settings_repository.dart';
+import 'features/settings/presentation/bloc/settings_bloc.dart';
+import 'features/settings/presentation/bloc/settings_event.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Hive Offline Database
   await Hive.initFlutter();
+  final settingsBox = await Hive.openBox('settings_box');
 
   // Instantiate Local Datasources
   final goalLocalDataSource = GoalLocalDataSourceImpl();
   final focusSessionLocalDataSource = FocusSessionLocalDataSourceImpl();
   final calendarLocalDataSource = CalendarLocalDataSourceImpl();
   final notificationLocalDataSource = NotificationLocalDataSourceImpl();
+  final settingsLocalDataSource = SettingsLocalDataSourceImpl(settingsBox: settingsBox);
 
   // Initialize Local Notifications
   await notificationLocalDataSource.initialize();
@@ -50,12 +58,15 @@ void main() async {
       CalendarRepositoryImpl(localDataSource: calendarLocalDataSource);
   final notificationRepository =
       NotificationRepositoryImpl(localDataSource: notificationLocalDataSource);
+  final settingsRepository =
+      SettingsRepositoryImpl(localDataSource: settingsLocalDataSource);
 
   runApp(ConsistencyTrackerApp(
     goalRepository: goalRepository,
     focusSessionRepository: focusSessionRepository,
     calendarRepository: calendarRepository,
     notificationRepository: notificationRepository,
+    settingsRepository: settingsRepository,
   ));
 }
 
@@ -64,6 +75,7 @@ class ConsistencyTrackerApp extends StatelessWidget {
   final FocusSessionRepository focusSessionRepository;
   final CalendarRepository calendarRepository;
   final NotificationRepository notificationRepository;
+  final SettingsRepository settingsRepository;
 
   const ConsistencyTrackerApp({
     super.key,
@@ -71,6 +83,7 @@ class ConsistencyTrackerApp extends StatelessWidget {
     required this.focusSessionRepository,
     required this.calendarRepository,
     required this.notificationRepository,
+    required this.settingsRepository,
   });
 
   @override
@@ -81,6 +94,7 @@ class ConsistencyTrackerApp extends StatelessWidget {
         RepositoryProvider<FocusSessionRepository>.value(value: focusSessionRepository),
         RepositoryProvider<CalendarRepository>.value(value: calendarRepository),
         RepositoryProvider<NotificationRepository>.value(value: notificationRepository),
+        RepositoryProvider<SettingsRepository>.value(value: settingsRepository),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -95,6 +109,10 @@ class ConsistencyTrackerApp extends StatelessWidget {
           BlocProvider<CalendarBloc>(
             create: (context) =>
                 CalendarBloc(calendarRepository: calendarRepository),
+          ),
+          BlocProvider<SettingsBloc>(
+            create: (context) =>
+                SettingsBloc(repository: settingsRepository)..add(const LoadSettingsEvent()),
           ),
         ],
         child: MaterialApp(
