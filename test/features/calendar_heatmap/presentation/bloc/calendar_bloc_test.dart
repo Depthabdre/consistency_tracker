@@ -28,6 +28,7 @@ void main() {
   });
 
   final today = DateTime.now();
+  final yesterday = today.subtract(const Duration(days: 1));
 
   final testDayCompleted = CalendarDayModel(
     date: today,
@@ -37,21 +38,21 @@ void main() {
   );
 
   final yesterdayCompleted = CalendarDayModel(
-    date: today.subtract(const Duration(days: 1)),
+    date: yesterday,
     totalMinutesFocused: 30,
     targetMinutes: 30,
     isCompleted: true,
   );
 
   final yesterdayMissed = CalendarDayModel(
-    date: today.subtract(const Duration(days: 1)),
-    totalMinutesFocused: 20, // Target is 30 mins -> missed!
+    date: yesterday,
+    totalMinutesFocused: 15,
     targetMinutes: 30,
     isCompleted: false,
   );
 
-  group('CalendarBloc - Heatmap Rules', () {
-    test('Positive: LoadCalendarEntriesEvent emits correct streak for consecutive target completed days', () async {
+  group('CalendarBloc - Goal Start Date Heatmap Rules', () {
+    test('Positive: LoadCalendarEntriesEvent calculates correct streak for consecutive target completed days', () async {
       when(() => mockRepository.getCalendarEntries('g1'))
           .thenAnswer((_) async => Result.success([testDayCompleted, yesterdayCompleted]));
 
@@ -66,7 +67,7 @@ void main() {
       );
     });
 
-    test('Negative/Missed: streak breaks when a past day is missed (not reaching target)', () async {
+    test('Negative/Missed: streak breaks when a past day after goal start date is missed', () async {
       when(() => mockRepository.getCalendarEntries('g1'))
           .thenAnswer((_) async => Result.success([testDayCompleted, yesterdayMissed]));
 
@@ -96,7 +97,7 @@ void main() {
       );
     });
 
-    test('Positive: ToggleCalendarDayTickEvent toggles day completion and reloads entries', () async {
+    test('Positive: ToggleCalendarDayTickEvent saves and reloads calendar entries', () async {
       when(() => mockRepository.saveCalendarDay('g1', any()))
           .thenAnswer((_) async => const Result.success(true));
       when(() => mockRepository.getCalendarEntries('g1'))
