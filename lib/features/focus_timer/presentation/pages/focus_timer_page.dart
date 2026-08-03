@@ -638,8 +638,8 @@ class _ActiveSessionContent extends StatelessWidget {
                   isPaused
                       ? 'Session Paused'
                       : isBreak
-                          ? 'Break phase active ☕'
-                          : 'Focus session active 🎯',
+                          ? 'Break phase active'
+                          : 'Focus session active',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
