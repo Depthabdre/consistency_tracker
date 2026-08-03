@@ -4,12 +4,14 @@ import '../../data/models/calendar_day_model.dart';
 
 class CalendarGridWidget extends StatelessWidget {
   final DateTime currentMonth;
+  final int targetMinutes;
   final List<CalendarDayModel> entries;
   final Function(CalendarDayModel day) onDayTap;
 
   const CalendarGridWidget({
     super.key,
     required this.currentMonth,
+    required this.targetMinutes,
     required this.entries,
     required this.onDayTap,
   });
@@ -29,17 +31,14 @@ class CalendarGridWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final daysInMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
     final firstWeekday = DateTime(currentMonth.year, currentMonth.month, 1).weekday;
-
     final totalCells = daysInMonth + (firstWeekday - 1);
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-        ),
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderOutline, width: 1.2),
       ),
       child: Column(
         children: [
@@ -56,7 +55,7 @@ class CalendarGridWidget extends StatelessWidget {
               _WeekdayLabel('S'),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Days Grid
           GridView.builder(
@@ -65,8 +64,8 @@ class CalendarGridWidget extends StatelessWidget {
             itemCount: totalCells,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
             ),
             itemBuilder: (context, index) {
               if (index < firstWeekday - 1) {
@@ -77,6 +76,7 @@ class CalendarGridWidget extends StatelessWidget {
               final date = DateTime(currentMonth.year, currentMonth.month, dayNumber);
               final entry = _findEntryForDay(date);
               final isCompleted = entry?.isCompleted ?? false;
+              final focusedMins = entry?.totalMinutesFocused ?? 0;
               final isToday = DateTime.now().year == date.year &&
                   DateTime.now().month == date.month &&
                   DateTime.now().day == date.day;
@@ -87,7 +87,7 @@ class CalendarGridWidget extends StatelessWidget {
                       CalendarDayModel(
                         date: date,
                         totalMinutesFocused: 0,
-                        targetMinutes: 20,
+                        targetMinutes: targetMinutes,
                         isCompleted: false,
                       );
                   onDayTap(targetDay);
@@ -95,39 +95,43 @@ class CalendarGridWidget extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isCompleted
-                        ? AppTheme.success
+                        ? AppTheme.successGreen
                         : (isToday
-                            ? AppTheme.primary.withValues(alpha: 0.25)
-                            : AppTheme.background),
-                    borderRadius: BorderRadius.circular(12),
+                            ? AppTheme.accentCyan.withValues(alpha: 0.15)
+                            : const Color(0xFF262626)),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isToday
-                          ? AppTheme.primary
+                          ? AppTheme.accentCyan
                           : (isCompleted
-                              ? AppTheme.success
-                              : Colors.white.withValues(alpha: 0.05)),
-                      width: isToday ? 2 : 1,
+                              ? AppTheme.successGreen
+                              : const Color(0xFF3A3A3A)),
+                      width: isToday ? 1.8 : 1.0,
                     ),
-                    boxShadow: isCompleted
-                        ? [
-                            BoxShadow(
-                              color: AppTheme.success.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : [],
                   ),
                   child: Center(
                     child: isCompleted
-                        ? const Icon(Icons.check, size: 20, color: Colors.white)
-                        : Text(
-                            '$dayNumber',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                              color: isToday ? AppTheme.primary : AppTheme.textSecondary,
-                            ),
+                        ? const Icon(Icons.check, size: 18, color: Colors.black)
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$dayNumber',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isToday ? FontWeight.bold : FontWeight.w400,
+                                  color: isToday ? AppTheme.accentCyan : AppTheme.textSecondary,
+                                ),
+                              ),
+                              if (focusedMins > 0 && !isCompleted)
+                                Text(
+                                  '${focusedMins}m',
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: AppTheme.accentCyan,
+                                  ),
+                                ),
+                            ],
                           ),
                   ),
                 ),
@@ -148,13 +152,13 @@ class _WeekdayLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 32,
+      width: 30,
       child: Text(
         label,
         textAlign: TextAlign.center,
         style: const TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           color: AppTheme.textMuted,
         ),
       ),

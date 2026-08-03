@@ -16,51 +16,37 @@ class StreakCounterWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-        ),
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderOutline, width: 1.2),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: const Color(0xFF383838),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF4F4F4F)),
             ),
-            child: const Icon(Icons.local_fire_department, size: 32, color: Colors.white),
+            child: const Icon(Icons.local_fire_department, size: 28, color: Color(0xFFFF8E53)),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      '$currentStreak Day Streak',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
+                Text(
+                  '$currentStreak Day Streak',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$totalDaysCompleted total days completed',
+                  '$totalDaysCompleted target days completed',
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondary,

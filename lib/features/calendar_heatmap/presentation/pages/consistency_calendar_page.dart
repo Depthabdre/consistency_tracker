@@ -41,85 +41,117 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
         title: Text('${widget.goal.title} Heatmap'),
       ),
-      body: BlocBuilder<CalendarBloc, CalendarState>(
-        builder: (context, state) {
-          if (state is CalendarLoadingState) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
-            );
-          }
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth < 600 ? 460 : 700;
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: BlocBuilder<CalendarBloc, CalendarState>(
+                      builder: (context, state) {
+                        if (state is CalendarLoadingState) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: AppTheme.accentCyan),
+                          );
+                        }
 
-          if (state is CalendarErrorState) {
-            return Center(
-              child: Text(
-                state.message,
-                style: const TextStyle(color: AppTheme.error),
-              ),
-            );
-          }
-
-          if (state is CalendarLoadedState) {
-            final completedCount =
-                state.entries.where((e) => e.isCompleted).length;
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  // Streak Counter
-                  StreakCounterWidget(
-                    currentStreak: state.currentStreak,
-                    totalDaysCompleted: completedCount,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Month Navigation Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left, color: AppTheme.textPrimary),
-                        onPressed: () => _changeMonth(-1),
-                      ),
-                      Text(
-                        DateFormat('MMMM yyyy').format(_displayedMonth),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right, color: AppTheme.textPrimary),
-                        onPressed: () => _changeMonth(1),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Calendar Grid Widget
-                  CalendarGridWidget(
-                    currentMonth: _displayedMonth,
-                    entries: state.entries,
-                    onDayTap: (day) {
-                      context.read<CalendarBloc>().add(
-                            ToggleCalendarDayTickEvent(
-                              goalId: widget.goal.id,
-                              day: day,
+                        if (state is CalendarErrorState) {
+                          return Center(
+                            child: Text(
+                              state.message,
+                              style: const TextStyle(color: Color(0xFFF43F5E)),
                             ),
                           );
-                    },
-                  ),
-                ],
-              ),
-            );
-          }
+                        }
 
-          return const SizedBox.shrink();
-        },
+                        if (state is CalendarLoadedState) {
+                          final completedCount =
+                              state.entries.where((e) => e.isCompleted).length;
+
+                          return SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                // Streak Counter
+                                StreakCounterWidget(
+                                  currentStreak: state.currentStreak,
+                                  totalDaysCompleted: completedCount,
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Month Navigation Bar
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceCard,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: AppTheme.borderOutline, width: 1.2),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_left,
+                                            color: AppTheme.textPrimary),
+                                        onPressed: () => _changeMonth(-1),
+                                      ),
+                                      Text(
+                                        DateFormat('MMMM yyyy').format(_displayedMonth),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_right,
+                                            color: AppTheme.textPrimary),
+                                        onPressed: () => _changeMonth(1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Calendar Grid Widget
+                                CalendarGridWidget(
+                                  currentMonth: _displayedMonth,
+                                  targetMinutes: widget.goal.targetMinutes,
+                                  entries: state.entries,
+                                  onDayTap: (day) {
+                                    context.read<CalendarBloc>().add(
+                                          ToggleCalendarDayTickEvent(
+                                            goalId: widget.goal.id,
+                                            day: day,
+                                          ),
+                                        );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
