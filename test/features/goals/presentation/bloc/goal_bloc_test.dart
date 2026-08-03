@@ -40,7 +40,7 @@ void main() {
   });
 
   blocTest<GoalBloc, GoalState>(
-    'emits [GoalLoadingState, GoalLoadedState] when LoadGoalsEvent succeeds',
+    'Positive: emits [GoalLoadingState, GoalLoadedState] when LoadGoalsEvent succeeds',
     build: () {
       when(() => mockGoalRepository.getGoals())
           .thenAnswer((_) async => const Result.success([testGoal]));
@@ -57,7 +57,7 @@ void main() {
   );
 
   blocTest<GoalBloc, GoalState>(
-    'emits [GoalLoadingState, GoalErrorState] when LoadGoalsEvent fails',
+    'Negative: emits [GoalLoadingState, GoalErrorState] when LoadGoalsEvent fails',
     build: () {
       when(() => mockGoalRepository.getGoals()).thenAnswer(
         (_) async => const Result.failure(CacheFailure('Failed to load goals')),
@@ -69,5 +69,59 @@ void main() {
       const GoalLoadingState(),
       const GoalErrorState('Failed to load goals'),
     ],
+  );
+
+  blocTest<GoalBloc, GoalState>(
+    'Positive: AddGoalEvent triggers save and reloads goals list',
+    build: () {
+      when(() => mockGoalRepository.saveGoal(any()))
+          .thenAnswer((_) async => const Result.success(true));
+      when(() => mockGoalRepository.getGoals())
+          .thenAnswer((_) async => const Result.success([testGoal]));
+      return goalBloc;
+    },
+    act: (bloc) => bloc.add(const AddGoalEvent(testGoal)),
+    expect: () => [
+      const GoalLoadingState(),
+      const GoalLoadedState([testGoal]),
+    ],
+    verify: (_) {
+      verify(() => mockGoalRepository.saveGoal(testGoal)).called(1);
+      verify(() => mockGoalRepository.getGoals()).called(1);
+    },
+  );
+
+  blocTest<GoalBloc, GoalState>(
+    'Negative: AddGoalEvent emits GoalErrorState when save fails',
+    build: () {
+      when(() => mockGoalRepository.saveGoal(any())).thenAnswer(
+        (_) async => const Result.failure(CacheFailure('Save failed')),
+      );
+      return goalBloc;
+    },
+    act: (bloc) => bloc.add(const AddGoalEvent(testGoal)),
+    expect: () => [
+      const GoalLoadingState(),
+      const GoalErrorState('Save failed'),
+    ],
+  );
+
+  blocTest<GoalBloc, GoalState>(
+    'Positive: DeleteGoalEvent deletes goal and reloads goals list',
+    build: () {
+      when(() => mockGoalRepository.deleteGoal('1'))
+          .thenAnswer((_) async => const Result.success(true));
+      when(() => mockGoalRepository.getGoals())
+          .thenAnswer((_) async => const Result.success([]));
+      return goalBloc;
+    },
+    act: (bloc) => bloc.add(const DeleteGoalEvent('1')),
+    expect: () => [
+      const GoalLoadingState(),
+      const GoalLoadedState([]),
+    ],
+    verify: (_) {
+      verify(() => mockGoalRepository.deleteGoal('1')).called(1);
+    },
   );
 }
