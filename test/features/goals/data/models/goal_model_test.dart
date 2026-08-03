@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:consistency_tracker/features/goals/data/models/goal_model.dart';
+import 'package:consistency_tracker/features/goals/data/models/reminder_time_model.dart';
 
 void main() {
   group('GoalModel with createdAt & Edge Cases', () {
@@ -11,6 +12,7 @@ void main() {
       targetMinutes: 30,
       reminderTimeHour: 9,
       reminderTimeMinute: 0,
+      reminderTimes: const [ReminderTimeModel(hour: 9, minute: 0)],
       motivationalQuote: 'Consistency is what transforms average into excellence.',
       colorHex: '#6366F1',
       createdAt: now,
@@ -60,20 +62,22 @@ void main() {
       final parsed = GoalModel.fromJson(jsonWithoutDate);
 
       expect(parsed.id, equals('g2'));
-      expect(parsed.createdAt, isA<DateTime>());
+      expect(parsed.title, equals('Legacy Goal'));
+      expect(parsed.targetMinutes, equals(25));
+      expect(parsed.createdAt, isNotNull);
+      expect(parsed.reminderTimes.length, equals(1));
     });
 
     test('Negative: fromJson with invalid targetMinutes string falls back safely', () {
-      final corruptedJson = {
+      final invalidJson = {
         'id': 'g3',
         'title': 'Corrupted Goal',
-        'targetMinutes': 'invalid_string',
+        'targetMinutes': 'not_a_number',
       };
 
-      final parsed = GoalModel.fromJson(corruptedJson);
+      final parsed = GoalModel.fromJson(invalidJson);
 
-      expect(parsed.id, equals('g3'));
-      expect(parsed.targetMinutes, equals(20)); // Defaults safely to 20
+      expect(parsed.targetMinutes, equals(20)); // default fallback
     });
   });
 }

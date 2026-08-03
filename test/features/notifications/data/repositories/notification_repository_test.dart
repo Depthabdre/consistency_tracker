@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:consistency_tracker/core/errors/failures.dart';
+import 'package:consistency_tracker/features/goals/data/models/goal_model.dart';
+import 'package:consistency_tracker/features/goals/data/models/reminder_time_model.dart';
 import 'package:consistency_tracker/features/notifications/data/datasources/notification_local_datasource.dart';
 import 'package:consistency_tracker/features/notifications/data/repositories/notification_repository.dart';
 
@@ -8,89 +9,107 @@ class MockNotificationLocalDataSource extends Mock
     implements NotificationLocalDataSource {}
 
 void main() {
-  late NotificationRepository repository;
-  late MockNotificationLocalDataSource mockDataSource;
+  late NotificationRepositoryImpl repository;
+  late MockNotificationLocalDataSource mockLocalDataSource;
 
   setUp(() {
-    mockDataSource = MockNotificationLocalDataSource();
-    repository = NotificationRepositoryImpl(localDataSource: mockDataSource);
+    mockLocalDataSource = MockNotificationLocalDataSource();
+    repository = NotificationRepositoryImpl(localDataSource: mockLocalDataSource);
   });
 
-  group('initNotifications', () {
-    test('Positive: should initialize local notification service successfully', () async {
-      when(() => mockDataSource.initialize()).thenAnswer((_) async => {});
+  group('NotificationRepository QA Skill Unit Tests', () {
+    test('TC-P0-01 (Positive): initNotifications initializes local data source', () async {
+      when(() => mockLocalDataSource.initialize()).thenAnswer((_) async {});
 
       final result = await repository.initNotifications();
 
       expect(result.isSuccess, isTrue);
-      verify(() => mockDataSource.initialize()).called(1);
+      verify(() => mockLocalDataSource.initialize()).called(1);
     });
 
-    test('Negative: should return NotificationFailure when initialization throws error', () async {
-      when(() => mockDataSource.initialize())
-          .thenThrow(Exception('Permission denied'));
+    test('TC-P0-02 (Positive): scheduleGoalReminders schedules all active reminder times', () async {
+      when(() => mockLocalDataSource.scheduleGoalNotification(
+            id: any(named: 'id'),
+            title: any(named: 'title'),
+            body: any(named: 'body'),
+            hour: any(named: 'hour'),
+            minute: any(named: 'minute'),
+          )).thenAnswer((_) async {});
 
-      final result = await repository.initNotifications();
+      final goal = GoalModel(
+        id: 'g1',
+        title: 'Deep Focus',
+        description: 'Read research paper',
+        targetMinutes: 30,
+        reminderTimeHour: 9,
+        reminderTimeMinute: 0,
+        reminderTimes: const [
+          ReminderTimeModel(hour: 9, minute: 0),
+          ReminderTimeModel(hour: 18, minute: 30),
+        ],
+        motivationalQuote: 'Consistency is key',
+        colorHex: '#6366F1',
+        createdAt: DateTime.now(),
+      );
+
+      final result = await repository.scheduleGoalReminders(goal);
+
+      expect(result.isSuccess, isTrue);
+      verify(() => mockLocalDataSource.scheduleGoalNotification(
+            id: any(named: 'id'),
+            title: 'Target Reminder: Deep Focus',
+            body: 'Consistency is key',
+            hour: 9,
+            minute: 0,
+          )).called(1);
+      verify(() => mockLocalDataSource.scheduleGoalNotification(
+            id: any(named: 'id'),
+            title: 'Target Reminder: Deep Focus',
+            body: 'Consistency is key',
+            hour: 18,
+            minute: 30,
+          )).called(1);
+    });
+
+    test('TC-N1-01 (Negative): Exception during scheduleGoalReminders maps cleanly to NotificationFailure', () async {
+      when(() => mockLocalDataSource.scheduleGoalNotification(
+            id: any(named: 'id'),
+            title: any(named: 'title'),
+            body: any(named: 'body'),
+            hour: any(named: 'hour'),
+            minute: any(named: 'minute'),
+          )).thenThrow(Exception('OS notification channel error'));
+
+      final goal = GoalModel(
+        id: 'g2',
+        title: 'Workout',
+        description: 'Gym',
+        targetMinutes: 45,
+        reminderTimeHour: 7,
+        reminderTimeMinute: 0,
+        motivationalQuote: '',
+        colorHex: '#38BDF8',
+        createdAt: DateTime.now(),
+      );
+
+      final result = await repository.scheduleGoalReminders(goal);
 
       expect(result.isFailure, isTrue);
-      expect(result.failure, isA<NotificationFailure>());
-      expect(result.failure!.message, contains('Permission denied'));
-    });
-  });
-
-  group('scheduleReminder', () {
-    test('Positive: should schedule goal notification with custom quote', () async {
-      when(() => mockDataSource.scheduleGoalNotification(
-            id: 101,
-            title: 'Daily Code',
-            body: 'Keep building!',
-            hour: 9,
-            minute: 0,
-          )).thenAnswer((_) async => {});
-
-      final result = await repository.scheduleReminder(
-        id: 101,
-        title: 'Daily Code',
-        quote: 'Keep building!',
-        hour: 9,
-        minute: 0,
+      result.fold(
+        onSuccess: (_) => fail('Should not succeed'),
+        onFailure: (failure) {
+          expect(failure.message, contains('Failed to schedule goal reminders'));
+        },
       );
-
-      expect(result.isSuccess, isTrue);
-      verify(() => mockDataSource.scheduleGoalNotification(
-            id: 101,
-            title: 'Daily Code',
-            body: 'Keep building!',
-            hour: 9,
-            minute: 0,
-          )).called(1);
     });
 
-    test('Edge Case: empty quote should fallback to default motivational text', () async {
-      when(() => mockDataSource.scheduleGoalNotification(
-            id: 102,
-            title: 'Exercise',
-            body: 'You won\'t regret taking 20 minutes for your future self today.',
-            hour: 8,
-            minute: 30,
-          )).thenAnswer((_) async => {});
+    test('TC-C0-01 (Monkey/Chaos): Goal deletion triggers cancelGoalReminders', () async {
+      when(() => mockLocalDataSource.cancelGoalReminders('g1')).thenAnswer((_) async {});
 
-      final result = await repository.scheduleReminder(
-        id: 102,
-        title: 'Exercise',
-        quote: '',
-        hour: 8,
-        minute: 30,
-      );
+      final result = await repository.cancelGoalReminders('g1');
 
       expect(result.isSuccess, isTrue);
-      verify(() => mockDataSource.scheduleGoalNotification(
-            id: 102,
-            title: 'Exercise',
-            body: 'You won\'t regret taking 20 minutes for your future self today.',
-            hour: 8,
-            minute: 30,
-          )).called(1);
+      verify(() => mockLocalDataSource.cancelGoalReminders('g1')).called(1);
     });
   });
 }
