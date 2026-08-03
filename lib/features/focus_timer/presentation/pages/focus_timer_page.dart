@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../calendar_heatmap/data/models/calendar_day_model.dart';
+import '../../../calendar_heatmap/data/repositories/calendar_repository.dart';
 import '../../../calendar_heatmap/presentation/bloc/calendar_bloc.dart';
 import '../../../calendar_heatmap/presentation/bloc/calendar_event.dart';
-import '../../../calendar_heatmap/presentation/bloc/calendar_state.dart';
 import '../../../goals/data/models/goal_model.dart';
 import '../../../goals/presentation/bloc/goal_bloc.dart';
 import '../../../goals/presentation/bloc/goal_event.dart';
@@ -116,115 +115,107 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
   }
 
   void _handleCompletedSession(
-      BuildContext context, FocusTimerCompletedState state) {
-    final today = DateTime.now();
-    final calendarBloc = context.read<CalendarBloc>();
-    final currentEntries = calendarBloc.state is CalendarLoadedState
-        ? (calendarBloc.state as CalendarLoadedState).entries
-        : <CalendarDayModel>[];
+      BuildContext context, FocusTimerCompletedState state) async {
+    final calendarRepository = context.read<CalendarRepository>();
 
-    int previousTodayMinutes = 0;
-    for (final entry in currentEntries) {
-      if (entry.date.year == today.year &&
-          entry.date.month == today.month &&
-          entry.date.day == today.day) {
-        previousTodayMinutes = entry.totalMinutesFocused;
-        break;
-      }
-    }
-
-    final cumulativeToday = previousTodayMinutes + state.totalMinutesCompleted;
-    final isTargetMet = cumulativeToday >= widget.goal.targetMinutes;
-
-    final updatedDay = CalendarDayModel(
-      date: today,
-      totalMinutesFocused: cumulativeToday,
+    final result = await calendarRepository.addFocusMinutesToToday(
+      goalId: widget.goal.id,
       targetMinutes: widget.goal.targetMinutes,
-      isCompleted: isTargetMet,
+      minutesToAdd: state.totalMinutesCompleted,
     );
 
-    calendarBloc.add(
-      ToggleCalendarDayTickEvent(
-        goalId: widget.goal.id,
-        day: updatedDay,
-      ),
-    );
+    if (!context.mounted) return;
 
-    // Synchronize GoalBloc today's progress map specifically for this goalId
-    context.read<GoalBloc>().add(
-          UpdateGoalProgressEvent(
-            goalId: widget.goal.id,
-            todayMinutes: cumulativeToday,
-          ),
-        );
+    result.fold(
+      onSuccess: (updatedDay) {
+        final cumulativeToday = updatedDay.totalMinutesFocused;
+        final isTargetMet = updatedDay.isCompleted;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.surfaceCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppTheme.borderOutline, width: 1.2),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isTargetMet ? AppTheme.successGreen : AppTheme.accentCyan,
-                shape: BoxShape.circle,
+        // Reload CalendarBloc entries for this goalId
+        context.read<CalendarBloc>().add(LoadCalendarEntriesEvent(widget.goal.id));
+
+        // Synchronize GoalBloc today's progress map specifically for this goalId
+        context.read<GoalBloc>().add(
+              UpdateGoalProgressEvent(
+                goalId: widget.goal.id,
+                todayMinutes: cumulativeToday,
               ),
-              child: Icon(
-                isTargetMet ? Icons.emoji_events : Icons.check,
-                size: 40,
-                color: Colors.black,
-              ),
+            );
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: AppTheme.surfaceCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: AppTheme.borderOutline, width: 1.2),
             ),
-            const SizedBox(height: 18),
-            Text(
-              isTargetMet ? 'Daily Target Completed!' : 'Focus Session Saved!',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              isTargetMet
-                  ? 'Awesome job! You reached your daily target of ${widget.goal.targetMinutes} minutes! Today is marked green on your calendar.'
-                  : 'You focused for ${state.totalMinutesCompleted} mins ($cumulativeToday / ${widget.goal.targetMinutes} mins focused today). Keep going to reach today\'s target!',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 42,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  Navigator.pop(context);
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.accentCyan,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isTargetMet ? AppTheme.successGreen : AppTheme.accentCyan,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isTargetMet ? Icons.emoji_events : Icons.check,
+                    size: 40,
+                    color: Colors.black,
                   ),
                 ),
-                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w600)),
-              ),
+                const SizedBox(height: 18),
+                Text(
+                  isTargetMet ? 'Daily Target Completed!' : 'Focus Session Saved!',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isTargetMet
+                      ? 'Awesome job! You reached your daily target of ${widget.goal.targetMinutes} minutes! Today is marked green on your calendar.'
+                      : 'You focused for ${state.totalMinutesCompleted} mins ($cumulativeToday / ${widget.goal.targetMinutes} mins focused today). Keep going to reach today\'s target!',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      Navigator.pop(context);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.accentCyan,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
+      onFailure: (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failure.message)),
+        );
+      },
     );
   }
 }
