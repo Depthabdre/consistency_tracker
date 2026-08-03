@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../settings/presentation/pages/settings_page.dart';
 import '../../data/models/goal_model.dart';
 import '../bloc/goal_bloc.dart';
 import '../bloc/goal_event.dart';
@@ -29,17 +28,6 @@ class GoalsListPage extends StatelessWidget {
       backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
         title: const Text('Consistency Targets'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppTheme.textPrimary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
-          ),
-        ],
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
