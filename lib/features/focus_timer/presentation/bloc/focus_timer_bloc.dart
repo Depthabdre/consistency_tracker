@@ -97,14 +97,16 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
       final goalId = (state is FocusTimerRunningState)
           ? (state as FocusTimerRunningState).goalId
           : (state as FocusTimerPausedState).goalId;
-      final elapsedSeconds = (state is FocusTimerRunningState)
-          ? (state as FocusTimerRunningState).elapsedSeconds
-          : (state as FocusTimerPausedState).elapsedSeconds;
       final targetMinutes = (state is FocusTimerRunningState)
           ? (state as FocusTimerRunningState).targetMinutes
           : (state as FocusTimerPausedState).targetMinutes;
 
-      final durationMinutes = (elapsedSeconds / 60).ceil();
+      final elapsedSeconds = event.elapsedSeconds ??
+          ((state is FocusTimerRunningState)
+              ? (state as FocusTimerRunningState).elapsedSeconds
+              : (state as FocusTimerPausedState).elapsedSeconds);
+
+      final durationMinutes = (elapsedSeconds / 60).floor();
       final isTargetMet = elapsedSeconds >= (targetMinutes * 60);
 
       final session = FocusSessionModel(

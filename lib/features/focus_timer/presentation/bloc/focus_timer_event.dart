@@ -38,5 +38,10 @@ class ResumeFocusTimerEvent extends FocusTimerEvent {
 }
 
 class CompleteFocusTimerEvent extends FocusTimerEvent {
-  const CompleteFocusTimerEvent();
+  final int? elapsedSeconds;
+
+  const CompleteFocusTimerEvent({this.elapsedSeconds});
+
+  @override
+  List<Object?> get props => [elapsedSeconds];
 }
