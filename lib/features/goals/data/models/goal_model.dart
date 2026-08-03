@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'reminder_time_model.dart';
 
 class GoalModel extends Equatable {
   final String id;
@@ -7,6 +8,7 @@ class GoalModel extends Equatable {
   final int targetMinutes;
   final int reminderTimeHour;
   final int reminderTimeMinute;
+  final List<ReminderTimeModel> reminderTimes;
   final String motivationalQuote;
   final String colorHex;
   final DateTime createdAt;
@@ -19,11 +21,19 @@ class GoalModel extends Equatable {
     required this.targetMinutes,
     required this.reminderTimeHour,
     required this.reminderTimeMinute,
+    this.reminderTimes = const [],
     required this.motivationalQuote,
     required this.colorHex,
     required this.createdAt,
     this.isActive = true,
   });
+
+  List<ReminderTimeModel> get activeReminderTimes {
+    if (reminderTimes.isNotEmpty) {
+      return reminderTimes;
+    }
+    return [ReminderTimeModel(hour: reminderTimeHour, minute: reminderTimeMinute)];
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -33,6 +43,7 @@ class GoalModel extends Equatable {
       'targetMinutes': targetMinutes,
       'reminderTimeHour': reminderTimeHour,
       'reminderTimeMinute': reminderTimeMinute,
+      'reminderTimes': activeReminderTimes.map((r) => r.toJson()).toList(),
       'motivationalQuote': motivationalQuote,
       'colorHex': colorHex,
       'createdAt': createdAt.toIso8601String(),
@@ -48,13 +59,30 @@ class GoalModel extends Equatable {
   }
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
+    final hour = _parseInt(json['reminderTimeHour'], 9);
+    final minute = _parseInt(json['reminderTimeMinute'], 0);
+
+    List<ReminderTimeModel> parsedReminders = [];
+    if (json['reminderTimes'] is List) {
+      final rawList = json['reminderTimes'] as List;
+      parsedReminders = rawList
+          .whereType<Map<String, dynamic>>()
+          .map((item) => ReminderTimeModel.fromJson(item))
+          .toList();
+    }
+
+    if (parsedReminders.isEmpty) {
+      parsedReminders = [ReminderTimeModel(hour: hour, minute: minute)];
+    }
+
     return GoalModel(
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? 'Target Goal',
       description: json['description'] as String? ?? '',
       targetMinutes: _parseInt(json['targetMinutes'], 20),
-      reminderTimeHour: _parseInt(json['reminderTimeHour'], 9),
-      reminderTimeMinute: _parseInt(json['reminderTimeMinute'], 0),
+      reminderTimeHour: hour,
+      reminderTimeMinute: minute,
+      reminderTimes: parsedReminders,
       motivationalQuote: json['motivationalQuote'] as String? ?? '',
       colorHex: json['colorHex'] as String? ?? '#6366F1',
       createdAt: json['createdAt'] != null
@@ -71,6 +99,7 @@ class GoalModel extends Equatable {
     int? targetMinutes,
     int? reminderTimeHour,
     int? reminderTimeMinute,
+    List<ReminderTimeModel>? reminderTimes,
     String? motivationalQuote,
     String? colorHex,
     DateTime? createdAt,
@@ -83,6 +112,7 @@ class GoalModel extends Equatable {
       targetMinutes: targetMinutes ?? this.targetMinutes,
       reminderTimeHour: reminderTimeHour ?? this.reminderTimeHour,
       reminderTimeMinute: reminderTimeMinute ?? this.reminderTimeMinute,
+      reminderTimes: reminderTimes ?? this.reminderTimes,
       motivationalQuote: motivationalQuote ?? this.motivationalQuote,
       colorHex: colorHex ?? this.colorHex,
       createdAt: createdAt ?? this.createdAt,
@@ -98,6 +128,7 @@ class GoalModel extends Equatable {
         targetMinutes,
         reminderTimeHour,
         reminderTimeMinute,
+        reminderTimes,
         motivationalQuote,
         colorHex,
         createdAt,
