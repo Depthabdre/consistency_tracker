@@ -24,12 +24,6 @@ class GoalsListPage extends StatelessWidget {
       backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
         title: const Text('Consistency Targets'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: AppTheme.textPrimary),
-            onPressed: () => _openAddGoalModal(context),
-          ),
-        ],
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
@@ -162,7 +156,7 @@ class GoalsListPage extends StatelessWidget {
                                       onStartFocus: () => onStartFocus(goal),
                                       onViewCalendar: () => onViewCalendar(goal),
                                       onDelete: () {
-                                        context.read<GoalBloc>().add(DeleteGoalEvent(goal.id));
+                                        _showGitHubStyleDeleteDialog(context, goal);
                                       },
                                     )),
                               ],
@@ -194,5 +188,137 @@ class GoalsListPage extends StatelessWidget {
     if (newGoal != null && context.mounted) {
       context.read<GoalBloc>().add(AddGoalEvent(newGoal));
     }
+  }
+
+  void _showGitHubStyleDeleteDialog(BuildContext context, GoalModel goal) {
+    final textController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final bool isMatch =
+                textController.text.trim() == goal.title.trim();
+
+            return AlertDialog(
+              backgroundColor: AppTheme.surfaceCard,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppTheme.borderOutline, width: 1.2),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFFF43F5E), size: 24),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Delete Target Goal',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This action cannot be undone. This will permanently delete the "${goal.title}" target goal and all associated focus history.',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: AppTheme.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                      children: [
+                        const TextSpan(text: 'Please type '),
+                        TextSpan(
+                          text: goal.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const TextSpan(text: ' to confirm:'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: textController,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: InputDecoration(
+                      hintText: goal.title,
+                      hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+                      filled: true,
+                      fillColor: AppTheme.backgroundStart,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: AppTheme.borderOutline),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: isMatch
+                              ? const Color(0xFFF43F5E)
+                              : AppTheme.borderOutline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    side: const BorderSide(color: Color(0xFF4F4F4F)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: isMatch
+                      ? () {
+                          Navigator.pop(dialogContext);
+                          context
+                              .read<GoalBloc>()
+                              .add(DeleteGoalEvent(goal.id));
+                        }
+                      : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFF43F5E),
+                    disabledBackgroundColor:
+                        const Color(0xFFF43F5E).withValues(alpha: 0.3),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: const Text('I understand, delete goal'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
