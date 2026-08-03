@@ -90,69 +90,37 @@ class _CircularProgressTimerState extends State<CircularProgressTimer>
             ),
           ),
 
-          // Inner Timer Text & Phase Badge Layout
+          // Inner Timer Text & Clean Phase Badge Layout
           Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    formatSecondsDynamic(widget.remainingSeconds),
-                    style: TextStyle(
-                      fontSize: widget.size * 0.22,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFF9FAFB),
-                      letterSpacing: -0.5,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (widget.remainingSeconds >= 600)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4.0),
-                      child: Text(
-                        'm',
-                        style: TextStyle(
-                          fontSize: widget.size * 0.1,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFFA0A0A0),
-                        ),
-                      ),
-                    ),
-                ],
+              Text(
+                formatSecondsDynamic(widget.remainingSeconds),
+                style: TextStyle(
+                  fontSize: widget.size * 0.17,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFF9FAFB),
+                  letterSpacing: -0.5,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: activeColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      widget.phaseType == SessionPhaseType.breakTime
-                          ? Icons.coffee_outlined
-                          : Icons.center_focus_strong_outlined,
-                      size: widget.size * 0.05,
-                      color: activeColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.phaseType == SessionPhaseType.breakTime
-                          ? 'BREAK Phase'
-                          : 'FOCUS Session',
-                      style: TextStyle(
-                        letterSpacing: 1.0,
-                        fontSize: widget.size * 0.042,
-                        color: activeColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  widget.phaseType == SessionPhaseType.breakTime
+                      ? 'BREAK Phase'
+                      : 'FOCUS Session',
+                  style: TextStyle(
+                    letterSpacing: 1.0,
+                    fontSize: widget.size * 0.040,
+                    color: activeColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
