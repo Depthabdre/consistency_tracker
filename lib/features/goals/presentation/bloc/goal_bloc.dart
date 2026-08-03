@@ -10,16 +10,21 @@ class GoalBloc extends Bloc<GoalEvent, GoalState> {
     on<LoadGoalsEvent>(_onLoadGoals);
     on<AddGoalEvent>(_onAddGoal);
     on<DeleteGoalEvent>(_onDeleteGoal);
+    on<UpdateGoalProgressEvent>(_onUpdateGoalProgress);
   }
 
   Future<void> _onLoadGoals(
     LoadGoalsEvent event,
     Emitter<GoalState> emit,
   ) async {
+    final currentProgressMap = state is GoalLoadedState
+        ? Map<String, int>.from((state as GoalLoadedState).todayMinutesByGoalId)
+        : <String, int>{};
+
     emit(const GoalLoadingState());
     final result = await goalRepository.getGoals();
     result.fold(
-      onSuccess: (goals) => emit(GoalLoadedState(goals)),
+      onSuccess: (goals) => emit(GoalLoadedState(goals, todayMinutesByGoalId: currentProgressMap)),
       onFailure: (failure) => emit(GoalErrorState(failure.message)),
     );
   }
@@ -46,5 +51,21 @@ class GoalBloc extends Bloc<GoalEvent, GoalState> {
       onSuccess: (_) => add(const LoadGoalsEvent()),
       onFailure: (failure) => emit(GoalErrorState(failure.message)),
     );
+  }
+
+  void _onUpdateGoalProgress(
+    UpdateGoalProgressEvent event,
+    Emitter<GoalState> emit,
+  ) {
+    if (state is GoalLoadedState) {
+      final currentState = state as GoalLoadedState;
+      final updatedMap = Map<String, int>.from(currentState.todayMinutesByGoalId);
+      updatedMap[event.goalId] = event.todayMinutes;
+
+      emit(GoalLoadedState(
+        currentState.goals,
+        todayMinutesByGoalId: updatedMap,
+      ));
+    }
   }
 }

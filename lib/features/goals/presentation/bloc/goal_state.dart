@@ -18,11 +18,15 @@ class GoalLoadingState extends GoalState {
 
 class GoalLoadedState extends GoalState {
   final List<GoalModel> goals;
+  final Map<String, int> todayMinutesByGoalId;
 
-  const GoalLoadedState(this.goals);
+  const GoalLoadedState(
+    this.goals, {
+    this.todayMinutesByGoalId = const {},
+  });
 
   @override
-  List<Object?> get props => [goals];
+  List<Object?> get props => [goals, todayMinutesByGoalId];
 }
 
 class GoalErrorState extends GoalState {

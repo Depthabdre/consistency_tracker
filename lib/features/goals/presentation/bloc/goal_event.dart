@@ -29,3 +29,16 @@ class DeleteGoalEvent extends GoalEvent {
   @override
   List<Object?> get props => [id];
 }
+
+class UpdateGoalProgressEvent extends GoalEvent {
+  final String goalId;
+  final int todayMinutes;
+
+  const UpdateGoalProgressEvent({
+    required this.goalId,
+    required this.todayMinutes,
+  });
+
+  @override
+  List<Object?> get props => [goalId, todayMinutes];
+}
