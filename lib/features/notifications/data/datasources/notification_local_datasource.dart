@@ -14,6 +14,7 @@ abstract class NotificationLocalDataSource {
     required String body,
   });
   Future<void> cancelNotification(int id);
+  Future<void> cancelGoalReminders(String goalId);
 }
 
 class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
@@ -106,5 +107,14 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
   @override
   Future<void> cancelNotification(int id) async {
     await _notificationsPlugin.cancel(id: id);
+  }
+
+  @override
+  Future<void> cancelGoalReminders(String goalId) async {
+    final int baseId = goalId.hashCode.abs() % 100000;
+    // Cancel up to 10 potential reminder slots for this goal ID
+    for (int i = 0; i < 10; i++) {
+      await _notificationsPlugin.cancel(id: baseId + i);
+    }
   }
 }

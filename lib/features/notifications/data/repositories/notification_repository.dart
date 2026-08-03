@@ -1,5 +1,6 @@
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
+import '../../../goals/data/models/goal_model.dart';
 import '../datasources/notification_local_datasource.dart';
 
 abstract class NotificationRepository {
@@ -11,11 +12,13 @@ abstract class NotificationRepository {
     required int hour,
     required int minute,
   });
+  Future<Result<void>> scheduleGoalReminders(GoalModel goal);
   Future<Result<void>> showImmediateNotification({
     required String title,
     required String body,
   });
   Future<Result<void>> cancelReminder(int id);
+  Future<Result<void>> cancelGoalReminders(String goalId);
 }
 
 class NotificationRepositoryImpl implements NotificationRepository {
@@ -60,7 +63,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
         title: title,
         body: quote.isNotEmpty
             ? quote
-            : 'You won\'t regret taking 20 minutes for your future self today.',
+            : 'You won\'t regret taking $title minutes for your future self today.',
         hour: hour,
         minute: minute,
       );
@@ -71,12 +74,46 @@ class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   @override
+  Future<Result<void>> scheduleGoalReminders(GoalModel goal) async {
+    try {
+      final baseId = goal.id.hashCode.abs() % 100000;
+      final reminders = goal.activeReminderTimes;
+
+      for (int i = 0; i < reminders.length; i++) {
+        final reminder = reminders[i];
+        await localDataSource.scheduleGoalNotification(
+          id: baseId + i,
+          title: 'Target Reminder: ${goal.title}',
+          body: goal.motivationalQuote.isNotEmpty
+              ? goal.motivationalQuote
+              : 'Keep your consistency streak alive! Focus ${goal.targetMinutes} mins today.',
+          hour: reminder.hour,
+          minute: reminder.minute,
+        );
+      }
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(NotificationFailure('Failed to schedule goal reminders: $e'));
+    }
+  }
+
+  @override
   Future<Result<void>> cancelReminder(int id) async {
     try {
       await localDataSource.cancelNotification(id);
       return const Result.success(null);
     } catch (e) {
       return Result.failure(NotificationFailure('Failed to cancel reminder: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> cancelGoalReminders(String goalId) async {
+    try {
+      await localDataSource.cancelGoalReminders(goalId);
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(NotificationFailure('Failed to cancel goal reminders: $e'));
     }
   }
 }
