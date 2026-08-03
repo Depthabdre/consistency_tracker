@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -10,6 +11,7 @@ import '../../../goals/presentation/bloc/goal_event.dart';
 import '../../../settings/domain/entities/app_settings.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../settings/presentation/bloc/settings_state.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../../domain/entities/session_phase.dart';
 import '../bloc/focus_timer_bloc.dart';
 import '../bloc/focus_timer_event.dart';
@@ -47,6 +49,17 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
       backgroundColor: AppTheme.backgroundStart,
       appBar: AppBar(
         title: Text(widget.goal.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_horiz, color: Color(0xFFE2E2E2)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+          ),
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
@@ -84,7 +97,8 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                                     : _NoSessionContent(
                                         goal: widget.goal,
                                         selectedMinutes: _selectedMinutes,
-                                        settings: activeSettings,
+                                        focusDuration: activeSettings.focusDurationMinutes,
+                                        breakDuration: activeSettings.breakDurationMinutes,
                                         onMinutesChanged: (newMins) {
                                           setState(() => _selectedMinutes = newMins);
                                         },
@@ -236,7 +250,8 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
 class _NoSessionContent extends StatefulWidget {
   final GoalModel goal;
   final int selectedMinutes;
-  final AppSettings settings;
+  final int focusDuration;
+  final int breakDuration;
   final ValueChanged<int> onMinutesChanged;
   final VoidCallback onMinusTap;
   final VoidCallback onPlusTap;
@@ -245,7 +260,8 @@ class _NoSessionContent extends StatefulWidget {
   const _NoSessionContent({
     required this.goal,
     required this.selectedMinutes,
-    required this.settings,
+    required this.focusDuration,
+    required this.breakDuration,
     required this.onMinutesChanged,
     required this.onMinusTap,
     required this.onPlusTap,
@@ -300,42 +316,28 @@ class _NoSessionContentState extends State<_NoSessionContent> {
 
   @override
   Widget build(BuildContext context) {
+    final int blockDuration = widget.focusDuration + widget.breakDuration;
+    final int plannedBreaks = blockDuration > 0 ? widget.selectedMinutes ~/ blockDuration : 0;
+
+    String breakLabel;
+    if (_skipBreaks || widget.selectedMinutes <= widget.focusDuration || plannedBreaks == 0) {
+      breakLabel = 'You\'ll have no breaks.';
+    } else if (plannedBreaks == 1) {
+      breakLabel = 'You\'ll have 1 break.';
+    } else {
+      breakLabel = 'You\'ll have $plannedBreaks breaks.';
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderOutline, width: 1.2),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          // Configured Session Setup Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF26282E),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.borderOutline, width: 1),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.tune, size: 16, color: AppTheme.accentCyan),
-                const SizedBox(width: 8),
-                Text(
-                  'Session Config: ${widget.settings.focusDurationMinutes}m focus • ${widget.settings.breakDurationMinutes}m break',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFFD1D5DB),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
           Text(
             'Ready, set, focus!',
             textAlign: TextAlign.center,
@@ -345,18 +347,18 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                   fontSize: 22,
                 ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
-            'Target for "${widget.goal.title}" is ${widget.goal.targetMinutes} minutes daily.\n'
-            'Tell us how much time you have for this session.',
+            'Achieve your goals and get more done with focus\nsessions. '
+            'Tell us how much time you have, and we\'ll\nset up the rest.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
+                  color: const Color(0xFFD0D0D0),
                   fontSize: 14,
                   height: 1.4,
                 ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 38),
 
           // Duration Stepper Box
           Container(
@@ -419,7 +421,7 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: widget.onPlusTap,
+                            onTap: widget.onMinusTap,
                             borderRadius:
                                 const BorderRadius.only(topRight: Radius.circular(8)),
                             child: const Center(
@@ -434,7 +436,7 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: widget.onMinusTap,
+                            onTap: widget.onPlusTap,
                             borderRadius: const BorderRadius.only(
                                 bottomRight: Radius.circular(8)),
                             child: const Center(
@@ -450,7 +452,18 @@ class _NoSessionContentState extends State<_NoSessionContent> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 26),
+
+          // Dynamic Break Label
+          Text(
+            breakLabel,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 14),
 
           // Skip breaks toggle
           Row(
@@ -480,7 +493,7 @@ class _NoSessionContentState extends State<_NoSessionContent> {
               ),
               const SizedBox(width: 8),
               const Text(
-                'Continuous focus mode (no breaks)',
+                'Skip breaks',
                 style: TextStyle(
                   fontSize: 14,
                   color: Color(0xFFA0A0A0),
@@ -492,7 +505,7 @@ class _NoSessionContentState extends State<_NoSessionContent> {
 
           // Start Button
           SizedBox(
-            height: 42,
+            height: 40,
             child: FilledButton.icon(
               onPressed: () => widget.onStartTap(_skipBreaks),
               icon: const Icon(Icons.play_arrow, size: 20, color: Colors.black),
@@ -558,7 +571,25 @@ class _ActiveSessionContent extends StatelessWidget {
       }
     }
 
+    int focusCount = 0;
+    int breakCount = 0;
+    int currentFocusIndex = 0;
+    int currentBreakIndex = 0;
+
+    for (int i = 0; i < phases.length; i++) {
+      if (phases[i].type == SessionPhaseType.focus) {
+        focusCount++;
+        if (i <= currentPhaseIndex) currentFocusIndex = focusCount;
+      } else {
+        breakCount++;
+        if (i <= currentPhaseIndex) currentBreakIndex = breakCount;
+      }
+    }
+
     final bool isBreak = phaseType == SessionPhaseType.breakTime;
+    final String headline = isBreak
+        ? (breakCount > 1 ? 'Break ($currentBreakIndex of $breakCount)' : 'Break period')
+        : (focusCount > 1 ? 'Focus period ($currentFocusIndex of $focusCount)' : 'Focus period');
 
     return Container(
       decoration: BoxDecoration(
@@ -569,20 +600,20 @@ class _ActiveSessionContent extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            top: 14,
-            left: 16,
+            top: 12,
+            left: 14,
             child: Text(
-              isBreak ? 'BREAK PERIOD' : 'FOCUS PERIOD',
-              style: TextStyle(
+              headline.toUpperCase(),
+              style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                color: isBreak ? const Color(0xFF7ED39A) : const Color(0xFF8A8A8A),
-                fontSize: 11,
-                letterSpacing: 0.8,
+                color: Color(0xFF8A8A8A),
+                fontSize: 10.5,
+                letterSpacing: 0.5,
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 24, right: 24, top: 44, bottom: 28),
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 48, bottom: 24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
@@ -594,11 +625,21 @@ class _ActiveSessionContent extends StatelessWidget {
                   ),
                 const SizedBox(height: 20),
 
-                CircularProgressTimer(
-                  remainingSeconds: remainingSeconds,
-                  totalSeconds: totalPhaseSeconds,
-                  phaseType: isBreak ? SessionPhaseType.breakTime : SessionPhaseType.focus,
-                  size: 260.0,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final Size screenSize = MediaQuery.sizeOf(context);
+                    final double size = math.min(
+                      constraints.maxWidth * 0.7,
+                      screenSize.height * 0.50,
+                    ).clamp(110.0, 520.0);
+
+                    return CircularProgressTimer(
+                      remainingSeconds: remainingSeconds,
+                      totalSeconds: totalPhaseSeconds,
+                      phaseType: isBreak ? SessionPhaseType.breakTime : SessionPhaseType.focus,
+                      size: size,
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
 
