@@ -33,9 +33,9 @@ class CalendarDayModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        date,
-        totalMinutesFocused,
-        targetMinutes,
-        isCompleted,
-      ];
+    date,
+    totalMinutesFocused,
+    targetMinutes,
+    isCompleted,
+  ];
 }

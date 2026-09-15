@@ -7,6 +7,7 @@ import '../bloc/calendar_bloc.dart';
 import '../bloc/calendar_event.dart';
 import '../bloc/calendar_state.dart';
 import '../reusable_widgets/calendar_grid_widget.dart';
+import '../reusable_widgets/day_detail_bottom_sheet.dart';
 import '../reusable_widgets/streak_counter_widget.dart';
 
 class ConsistencyCalendarPage extends StatefulWidget {
@@ -15,7 +16,8 @@ class ConsistencyCalendarPage extends StatefulWidget {
   const ConsistencyCalendarPage({super.key, required this.goal});
 
   @override
-  State<ConsistencyCalendarPage> createState() => _ConsistencyCalendarPageState();
+  State<ConsistencyCalendarPage> createState() =>
+      _ConsistencyCalendarPageState();
 }
 
 class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
@@ -29,8 +31,14 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
   }
 
   bool get _canNavigateBack {
-    final startMonth = DateTime(widget.goal.createdAt.year, widget.goal.createdAt.month);
-    final currentMonthView = DateTime(_displayedMonth.year, _displayedMonth.month);
+    final startMonth = DateTime(
+      widget.goal.createdAt.year,
+      widget.goal.createdAt.month,
+    );
+    final currentMonthView = DateTime(
+      _displayedMonth.year,
+      _displayedMonth.month,
+    );
     return currentMonthView.isAfter(startMonth);
   }
 
@@ -47,13 +55,13 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final formattedStartDate = DateFormat('MMM d, yyyy').format(widget.goal.createdAt);
+    final formattedStartDate = DateFormat(
+      'MMM d, yyyy',
+    ).format(widget.goal.createdAt);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundStart,
-      appBar: AppBar(
-        title: Text('${widget.goal.title} Heatmap'),
-      ),
+      appBar: AppBar(title: Text('${widget.goal.title} Heatmap')),
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
         child: SafeArea(
@@ -65,12 +73,17 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     child: BlocBuilder<CalendarBloc, CalendarState>(
                       builder: (context, state) {
                         if (state is CalendarLoadingState) {
                           return const Center(
-                            child: CircularProgressIndicator(color: AppTheme.accentCyan),
+                            child: CircularProgressIndicator(
+                              color: AppTheme.accentCyan,
+                            ),
                           );
                         }
 
@@ -84,8 +97,9 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                         }
 
                         if (state is CalendarLoadedState) {
-                          final completedCount =
-                              state.entries.where((e) => e.isCompleted).length;
+                          final completedCount = state.entries
+                              .where((e) => e.isCompleted)
+                              .length;
 
                           return SingleChildScrollView(
                             child: Column(
@@ -93,17 +107,27 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                                 // Goal Start Date Header Badge
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
                                   margin: const EdgeInsets.only(bottom: 16),
                                   decoration: BoxDecoration(
                                     color: AppTheme.surfaceCard,
                                     borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: AppTheme.borderOutline, width: 1.2),
+                                    border: Border.all(
+                                      color: AppTheme.borderOutline,
+                                      width: 1.2,
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(Icons.flag_outlined, size: 16, color: AppTheme.accentCyan),
+                                      const Icon(
+                                        Icons.flag_rounded,
+                                        size: 16,
+                                        color: AppTheme.accentCyan,
+                                      ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'Goal started on $formattedStartDate',
@@ -127,19 +151,24 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                                 // Month Navigation Bar
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppTheme.surfaceCard,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                        color: AppTheme.borderOutline, width: 1.2),
+                                      color: AppTheme.borderOutline,
+                                      width: 1.2,
+                                    ),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       IconButton(
                                         icon: Icon(
-                                          Icons.chevron_left,
+                                          Icons.chevron_left_rounded,
                                           color: _canNavigateBack
                                               ? AppTheme.textPrimary
                                               : Colors.white24,
@@ -149,7 +178,9 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                                             : null,
                                       ),
                                       Text(
-                                        DateFormat('MMMM yyyy').format(_displayedMonth),
+                                        DateFormat(
+                                          'MMMM yyyy',
+                                        ).format(_displayedMonth),
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
@@ -157,8 +188,10 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                                         ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.chevron_right,
-                                            color: AppTheme.textPrimary),
+                                        icon: const Icon(
+                                          Icons.chevron_right_rounded,
+                                          color: AppTheme.textPrimary,
+                                        ),
                                         onPressed: () => _changeMonth(1),
                                       ),
                                     ],
@@ -173,12 +206,17 @@ class _ConsistencyCalendarPageState extends State<ConsistencyCalendarPage> {
                                   targetMinutes: widget.goal.targetMinutes,
                                   entries: state.entries,
                                   onDayTap: (day) {
-                                    context.read<CalendarBloc>().add(
-                                          ToggleCalendarDayTickEvent(
-                                            goalId: widget.goal.id,
+                                    showModalBottomSheet(
+                                      context: context,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (context) =>
+                                          DayDetailBottomSheet(
                                             day: day,
+                                            goalTitle: widget.goal.title,
+                                            goalStartDate:
+                                                widget.goal.createdAt,
                                           ),
-                                        );
+                                    );
                                   },
                                 ),
                               ],

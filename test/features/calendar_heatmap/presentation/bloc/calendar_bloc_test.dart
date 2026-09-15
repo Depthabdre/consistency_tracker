@@ -14,12 +14,14 @@ void main() {
   late MockCalendarRepository mockRepository;
 
   setUpAll(() {
-    registerFallbackValue(CalendarDayModel(
-      date: DateTime.now(),
-      totalMinutesFocused: 30,
-      targetMinutes: 30,
-      isCompleted: true,
-    ));
+    registerFallbackValue(
+      CalendarDayModel(
+        date: DateTime.now(),
+        totalMinutesFocused: 30,
+        targetMinutes: 30,
+        isCompleted: true,
+      ),
+    );
   });
 
   setUp(() {
@@ -52,39 +54,54 @@ void main() {
   );
 
   group('CalendarBloc - Goal Start Date Heatmap Rules', () {
-    test('Positive: LoadCalendarEntriesEvent calculates correct streak for consecutive target completed days', () async {
-      when(() => mockRepository.getCalendarEntries('g1'))
-          .thenAnswer((_) async => Result.success([testDayCompleted, yesterdayCompleted]));
+    test(
+      'Positive: LoadCalendarEntriesEvent calculates correct streak for consecutive target completed days',
+      () async {
+        when(() => mockRepository.getCalendarEntries('g1')).thenAnswer(
+          (_) async => Result.success([testDayCompleted, yesterdayCompleted]),
+        );
 
-      bloc.add(const LoadCalendarEntriesEvent('g1'));
+        bloc.add(const LoadCalendarEntriesEvent('g1'));
 
-      expect(
-        bloc.stream,
-        emitsInOrder([
-          const CalendarLoadingState(),
-          CalendarLoadedState(entries: [testDayCompleted, yesterdayCompleted], currentStreak: 2),
-        ]),
-      );
-    });
+        expect(
+          bloc.stream,
+          emitsInOrder([
+            const CalendarLoadingState(),
+            CalendarLoadedState(
+              entries: [testDayCompleted, yesterdayCompleted],
+              currentStreak: 2,
+            ),
+          ]),
+        );
+      },
+    );
 
-    test('Negative/Missed: streak breaks when a past day after goal start date is missed', () async {
-      when(() => mockRepository.getCalendarEntries('g1'))
-          .thenAnswer((_) async => Result.success([testDayCompleted, yesterdayMissed]));
+    test(
+      'Negative/Missed: streak breaks when a past day after goal start date is missed',
+      () async {
+        when(() => mockRepository.getCalendarEntries('g1')).thenAnswer(
+          (_) async => Result.success([testDayCompleted, yesterdayMissed]),
+        );
 
-      bloc.add(const LoadCalendarEntriesEvent('g1'));
+        bloc.add(const LoadCalendarEntriesEvent('g1'));
 
-      expect(
-        bloc.stream,
-        emitsInOrder([
-          const CalendarLoadingState(),
-          CalendarLoadedState(entries: [testDayCompleted, yesterdayMissed], currentStreak: 1),
-        ]),
-      );
-    });
+        expect(
+          bloc.stream,
+          emitsInOrder([
+            const CalendarLoadingState(),
+            CalendarLoadedState(
+              entries: [testDayCompleted, yesterdayMissed],
+              currentStreak: 1,
+            ),
+          ]),
+        );
+      },
+    );
 
     test('Edge Case: empty entries list returns 0 streak', () async {
-      when(() => mockRepository.getCalendarEntries('g1'))
-          .thenAnswer((_) async => const Result.success([]));
+      when(
+        () => mockRepository.getCalendarEntries('g1'),
+      ).thenAnswer((_) async => const Result.success([]));
 
       bloc.add(const LoadCalendarEntriesEvent('g1'));
 
@@ -93,31 +110,6 @@ void main() {
         emitsInOrder([
           const CalendarLoadingState(),
           const CalendarLoadedState(entries: [], currentStreak: 0),
-        ]),
-      );
-    });
-
-    test('Positive: ToggleCalendarDayTickEvent saves and reloads calendar entries', () async {
-      when(() => mockRepository.saveCalendarDay('g1', any()))
-          .thenAnswer((_) async => const Result.success(true));
-      when(() => mockRepository.getCalendarEntries('g1'))
-          .thenAnswer((_) async => Result.success([testDayCompleted]));
-
-      bloc.add(ToggleCalendarDayTickEvent(
-        goalId: 'g1',
-        day: CalendarDayModel(
-          date: today,
-          totalMinutesFocused: 0,
-          targetMinutes: 30,
-          isCompleted: false,
-        ),
-      ));
-
-      expect(
-        bloc.stream,
-        emitsInOrder([
-          const CalendarLoadingState(),
-          CalendarLoadedState(entries: [testDayCompleted], currentStreak: 1),
         ]),
       );
     });

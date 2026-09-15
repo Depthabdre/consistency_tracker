@@ -43,9 +43,17 @@ class CalendarGridWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final startDateOnly = DateTime(goalStartDate.year, goalStartDate.month, goalStartDate.day);
+    final startDateOnly = DateTime(
+      goalStartDate.year,
+      goalStartDate.month,
+      goalStartDate.day,
+    );
 
-    final daysInMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
+    final daysInMonth = DateTime(
+      currentMonth.year,
+      currentMonth.month + 1,
+      0,
+    ).day;
 
     // Collect all valid dates for current month that are ON OR AFTER goalStartDate
     final List<DateTime> validDates = [];
@@ -126,12 +134,20 @@ class CalendarGridWidget extends StatelessWidget {
                 // Rule: Green checkmark ONLY when targetMinutes is met
                 cellBgColor = AppTheme.successGreen;
                 cellBorderColor = AppTheme.successGreen;
-                cellContent = const Icon(Icons.check, size: 18, color: Colors.black);
+                cellContent = const Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: Colors.black,
+                );
               } else if (isMissedPastDay) {
                 // Rule: Missed past day after goal start date shows X icon
                 cellBgColor = const Color(0xFF3A2024);
                 cellBorderColor = const Color(0xFFF43F5E);
-                cellContent = const Icon(Icons.close, size: 16, color: Color(0xFFF43F5E));
+                cellContent = const Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: Color(0xFFF43F5E),
+                );
               } else if (isToday) {
                 // Rule: Today cell with cyan progress border
                 cellBgColor = AppTheme.accentCyan.withValues(alpha: 0.15);
@@ -170,7 +186,8 @@ class CalendarGridWidget extends StatelessWidget {
 
               return GestureDetector(
                 onTap: () {
-                  final targetDay = entry ??
+                  final targetDay =
+                      entry ??
                       CalendarDayModel(
                         date: date,
                         totalMinutesFocused: 0,

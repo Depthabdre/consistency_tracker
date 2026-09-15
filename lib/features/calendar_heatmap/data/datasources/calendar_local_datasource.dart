@@ -19,7 +19,9 @@ class CalendarLocalDataSourceImpl implements CalendarLocalDataSource {
     final box = await Hive.openBox('$boxPrefix$goalId');
     final rawList = box.values.toList();
     return rawList
-        .map((e) => CalendarDayModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) => CalendarDayModel.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
   }
 
@@ -44,8 +46,9 @@ class CalendarLocalDataSourceImpl implements CalendarLocalDataSource {
     final raw = box.get(key);
     int existingMinutes = 0;
     if (raw != null) {
-      final existingDay =
-          CalendarDayModel.fromJson(Map<String, dynamic>.from(raw as Map));
+      final existingDay = CalendarDayModel.fromJson(
+        Map<String, dynamic>.from(raw as Map),
+      );
       existingMinutes = existingDay.totalMinutesFocused;
     }
 

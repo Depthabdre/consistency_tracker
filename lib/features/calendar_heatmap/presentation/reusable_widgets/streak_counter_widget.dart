@@ -25,11 +25,15 @@ class StreakCounterWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF383838),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF4F4F4F)),
+              color: const Color(0xFFFF8E53).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFF8E53).withValues(alpha: 0.3)),
             ),
-            child: const Icon(Icons.local_fire_department, size: 28, color: Color(0xFFFF8E53)),
+            child: const Icon(
+              Icons.whatshot_rounded,
+              size: 28,
+              color: Color(0xFFFF8E53),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(

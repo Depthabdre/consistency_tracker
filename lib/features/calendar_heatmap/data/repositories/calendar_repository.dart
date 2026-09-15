@@ -19,17 +19,24 @@ class CalendarRepositoryImpl implements CalendarRepository {
   CalendarRepositoryImpl({required this.localDataSource});
 
   @override
-  Future<Result<List<CalendarDayModel>>> getCalendarEntries(String goalId) async {
+  Future<Result<List<CalendarDayModel>>> getCalendarEntries(
+    String goalId,
+  ) async {
     try {
       final entries = await localDataSource.getCalendarEntries(goalId);
       return Result.success(entries);
     } catch (e) {
-      return Result.failure(CacheFailure('Failed to load calendar entries: $e'));
+      return Result.failure(
+        CacheFailure('Failed to load calendar entries: $e'),
+      );
     }
   }
 
   @override
-  Future<Result<bool>> saveCalendarDay(String goalId, CalendarDayModel day) async {
+  Future<Result<bool>> saveCalendarDay(
+    String goalId,
+    CalendarDayModel day,
+  ) async {
     try {
       final success = await localDataSource.saveCalendarDay(goalId, day);
       return Result.success(success);
