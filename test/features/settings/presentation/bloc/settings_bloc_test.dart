@@ -31,8 +31,9 @@ void main() {
   blocTest<SettingsBloc, SettingsState>(
     'Positive: LoadSettingsEvent emits [SettingsLoading, SettingsLoaded]',
     build: () {
-      when(() => mockRepository.getSettings())
-          .thenAnswer((_) async => const Result.success(AppSettings.defaults));
+      when(
+        () => mockRepository.getSettings(),
+      ).thenAnswer((_) async => const Result.success(AppSettings.defaults));
       return bloc;
     },
     act: (b) => b.add(const LoadSettingsEvent()),
@@ -46,7 +47,8 @@ void main() {
     'Negative: LoadSettingsEvent emits [SettingsLoading, SettingsError] on failure',
     build: () {
       when(() => mockRepository.getSettings()).thenAnswer(
-        (_) async => const Result.failure(CacheFailure('Failed to load settings')),
+        (_) async =>
+            const Result.failure(CacheFailure('Failed to load settings')),
       );
       return bloc;
     },
@@ -60,18 +62,21 @@ void main() {
   blocTest<SettingsBloc, SettingsState>(
     'Positive: SettingsUpdated saves settings and emits updated SettingsLoaded state',
     build: () {
-      when(() => mockRepository.saveSettings(any()))
-          .thenAnswer((_) async => const Result.success(true));
+      when(
+        () => mockRepository.saveSettings(any()),
+      ).thenAnswer((_) async => const Result.success(true));
       return bloc;
     },
-    act: (b) => b.add(const SettingsUpdated(
-      AppSettings(
-        focusDurationMinutes: 30,
-        breakDurationMinutes: 10,
-        soundEnabled: false,
-        notificationsEnabled: true,
+    act: (b) => b.add(
+      const SettingsUpdated(
+        AppSettings(
+          focusDurationMinutes: 30,
+          breakDurationMinutes: 10,
+          soundEnabled: false,
+          notificationsEnabled: true,
+        ),
       ),
-    )),
+    ),
     expect: () => [
       const SettingsLoading(),
       const SettingsLoaded(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class DurationPicker extends StatelessWidget {
   const DurationPicker({
@@ -20,8 +21,9 @@ class DurationPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF33353C),
+        color: AppTheme.surfaceCard,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderOutline, width: 1),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -30,16 +32,19 @@ class DurationPicker extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           IconButton(
             onPressed: valueMinutes > minMinutes
                 ? () => onChanged(valueMinutes - 1)
                 : null,
-            icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF53B5EA)),
+            icon: const Icon(
+              Icons.remove_circle_outline_rounded,
+              color: AppTheme.accentCyan,
+            ),
           ),
           Text(
             '$valueMinutes min',
@@ -53,7 +58,10 @@ class DurationPicker extends StatelessWidget {
             onPressed: valueMinutes < maxMinutes
                 ? () => onChanged(valueMinutes + 1)
                 : null,
-            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF53B5EA)),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: AppTheme.accentCyan,
+            ),
           ),
         ],
       ),

@@ -23,7 +23,10 @@ void main() {
     });
 
     test('Positive: copyWith returns updated settings instance', () {
-      final updated = settings.copyWith(focusDurationMinutes: 30, soundEnabled: false);
+      final updated = settings.copyWith(
+        focusDurationMinutes: 30,
+        soundEnabled: false,
+      );
 
       expect(updated.focusDurationMinutes, equals(30));
       expect(updated.soundEnabled, isFalse);
@@ -38,9 +41,12 @@ void main() {
       expect(fromEmpty.breakDurationMinutes, equals(5));
     });
 
-    test('Negative: copyWith without parameters returns identical instance', () {
-      final copied = settings.copyWith();
-      expect(copied, equals(settings));
-    });
+    test(
+      'Negative: copyWith without parameters returns identical instance',
+      () {
+        final copied = settings.copyWith();
+        expect(copied, equals(settings));
+      },
+    );
   });
 }

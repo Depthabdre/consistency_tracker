@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class SettingsToggleSwitch extends StatelessWidget {
   const SettingsToggleSwitch({
@@ -18,8 +19,9 @@ class SettingsToggleSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF33353C),
+        color: AppTheme.surfaceCard,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderOutline, width: 1),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -31,17 +33,17 @@ class SettingsToggleSwitch extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFFA0A0A0),
-                        fontSize: 13,
-                      ),
+                    color: AppTheme.textMuted,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -50,7 +52,7 @@ class SettingsToggleSwitch extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: const Color(0xFF53B5EA),
+            activeThumbColor: AppTheme.accentCyan,
           ),
         ],
       ),
