@@ -3,17 +3,20 @@ import 'package:consistency_tracker/features/goals/data/models/reminder_time_mod
 
 void main() {
   group('ReminderTimeModel QA Skill Unit Tests', () {
-    test('TC-P0-01 (Positive): Valid 09:30 AM serialization and formatting', () {
-      const model = ReminderTimeModel(hour: 9, minute: 30);
-      final json = model.toJson();
+    test(
+      'TC-P0-01 (Positive): Valid 09:30 AM serialization and formatting',
+      () {
+        const model = ReminderTimeModel(hour: 9, minute: 30);
+        final json = model.toJson();
 
-      expect(json['hour'], equals(9));
-      expect(json['minute'], equals(30));
-      expect(model.formattedTime, equals('9:30 AM'));
+        expect(json['hour'], equals(9));
+        expect(json['minute'], equals(30));
+        expect(model.formattedTime, equals('9:30 AM'));
 
-      final reconstructed = ReminderTimeModel.fromJson(json);
-      expect(reconstructed, equals(model));
-    });
+        final reconstructed = ReminderTimeModel.fromJson(json);
+        expect(reconstructed, equals(model));
+      },
+    );
 
     test('TC-P0-02 (Positive): Valid 18:45 PM formatting', () {
       const model = ReminderTimeModel(hour: 18, minute: 45);
@@ -42,11 +45,17 @@ void main() {
       expect(model.minute, equals(59));
     });
 
-    test('TC-C0-01 (Monkey/Chaos): Corrupted string inputs fallback to default 09:00 AM', () {
-      final model = ReminderTimeModel.fromJson({'hour': 'invalid', 'minute': null});
-      expect(model.hour, equals(9));
-      expect(model.minute, equals(0));
-      expect(model.formattedTime, equals('9:00 AM'));
-    });
+    test(
+      'TC-C0-01 (Monkey/Chaos): Corrupted string inputs fallback to default 09:00 AM',
+      () {
+        final model = ReminderTimeModel.fromJson({
+          'hour': 'invalid',
+          'minute': null,
+        });
+        expect(model.hour, equals(9));
+        expect(model.minute, equals(0));
+        expect(model.formattedTime, equals('9:00 AM'));
+      },
+    );
   });
 }

@@ -43,8 +43,9 @@ void main() {
   blocTest<GoalBloc, GoalState>(
     'Positive: emits [GoalLoadingState, GoalLoadedState] when LoadGoalsEvent succeeds',
     build: () {
-      when(() => mockGoalRepository.getGoals())
-          .thenAnswer((_) async => Result.success([testGoal]));
+      when(
+        () => mockGoalRepository.getGoals(),
+      ).thenAnswer((_) async => Result.success([testGoal]));
       return goalBloc;
     },
     act: (bloc) => bloc.add(const LoadGoalsEvent()),
@@ -75,10 +76,12 @@ void main() {
   blocTest<GoalBloc, GoalState>(
     'Positive: AddGoalEvent triggers save and reloads goals list',
     build: () {
-      when(() => mockGoalRepository.saveGoal(any()))
-          .thenAnswer((_) async => const Result.success(true));
-      when(() => mockGoalRepository.getGoals())
-          .thenAnswer((_) async => Result.success([testGoal]));
+      when(
+        () => mockGoalRepository.saveGoal(any()),
+      ).thenAnswer((_) async => const Result.success(true));
+      when(
+        () => mockGoalRepository.getGoals(),
+      ).thenAnswer((_) async => Result.success([testGoal]));
       return goalBloc;
     },
     act: (bloc) => bloc.add(AddGoalEvent(testGoal)),
@@ -110,17 +113,16 @@ void main() {
   blocTest<GoalBloc, GoalState>(
     'Positive: DeleteGoalEvent deletes goal and reloads goals list',
     build: () {
-      when(() => mockGoalRepository.deleteGoal('1'))
-          .thenAnswer((_) async => const Result.success(true));
-      when(() => mockGoalRepository.getGoals())
-          .thenAnswer((_) async => const Result.success([]));
+      when(
+        () => mockGoalRepository.deleteGoal('1'),
+      ).thenAnswer((_) async => const Result.success(true));
+      when(
+        () => mockGoalRepository.getGoals(),
+      ).thenAnswer((_) async => const Result.success([]));
       return goalBloc;
     },
     act: (bloc) => bloc.add(const DeleteGoalEvent('1')),
-    expect: () => [
-      const GoalLoadingState(),
-      const GoalLoadedState([]),
-    ],
+    expect: () => [const GoalLoadingState(), const GoalLoadedState([])],
     verify: (_) {
       verify(() => mockGoalRepository.deleteGoal('1')).called(1);
     },

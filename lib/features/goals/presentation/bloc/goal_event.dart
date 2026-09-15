@@ -21,6 +21,15 @@ class AddGoalEvent extends GoalEvent {
   List<Object?> get props => [goal];
 }
 
+class UpdateGoalEvent extends GoalEvent {
+  final GoalModel goal;
+
+  const UpdateGoalEvent(this.goal);
+
+  @override
+  List<Object?> get props => [goal];
+}
+
 class DeleteGoalEvent extends GoalEvent {
   final String id;
 

@@ -44,8 +44,9 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.goal?.title ?? '');
-    _descriptionController =
-        TextEditingController(text: widget.goal?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.goal?.description ?? '',
+    );
     _quoteController = TextEditingController(
       text: widget.goal?.motivationalQuote ?? _quotePresets.first,
     );
@@ -120,7 +121,9 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    widget.goal == null ? 'Set New Target Goal' : 'Edit Target Goal',
+                    widget.goal == null
+                        ? 'Set New Target Goal'
+                        : 'Edit Target Goal',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -128,7 +131,7 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.textMuted),
+                    icon: const Icon(Icons.close_rounded, color: AppTheme.textMuted),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -149,8 +152,9 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                     borderSide: const BorderSide(color: AppTheme.borderOutline),
                   ),
                 ),
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Title is required' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Title is required'
+                    : null,
               ),
               const SizedBox(height: 12),
 
@@ -184,7 +188,10 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.accentCyan.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -207,7 +214,8 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                 divisions: 23,
                 activeColor: AppTheme.accentCyan,
                 inactiveColor: AppTheme.backgroundStart,
-                onChanged: (val) => setState(() => _targetMinutes = val.toInt()),
+                onChanged: (val) =>
+                    setState(() => _targetMinutes = val.toInt()),
               ),
               const SizedBox(height: 16),
 
@@ -225,9 +233,18 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                   ),
                   TextButton.icon(
                     onPressed: _addReminderTime,
-                    icon: const Icon(Icons.add_alarm, size: 16, color: AppTheme.accentCyan),
-                    label: const Text('Add Time',
-                        style: TextStyle(fontSize: 12.5, color: AppTheme.accentCyan)),
+                    icon: const Icon(
+                      Icons.alarm_add_rounded,
+                      size: 16,
+                      color: AppTheme.accentCyan,
+                    ),
+                    label: const Text(
+                      'Add Time',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.accentCyan,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -242,12 +259,22 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                   return Chip(
                     backgroundColor: AppTheme.backgroundStart,
                     side: const BorderSide(color: AppTheme.borderOutline),
-                    labelStyle: const TextStyle(color: Colors.white, fontSize: 13),
-                    avatar: const Icon(Icons.notifications_active,
-                        size: 15, color: AppTheme.accentCyan),
+                    labelStyle: const TextStyle(
+                       color: Colors.white,
+                       fontSize: 13,
+                    ),
+                    avatar: const Icon(
+                      Icons.notifications_active_rounded,
+                      size: 15,
+                      color: AppTheme.accentCyan,
+                    ),
                     label: Text(time.formattedTime),
                     deleteIcon: _reminderTimes.length > 1
-                        ? const Icon(Icons.close, size: 15, color: AppTheme.textMuted)
+                        ? const Icon(
+                            Icons.close_rounded,
+                            size: 15,
+                            color: AppTheme.textMuted,
+                          )
                         : null,
                     onDeleted: _reminderTimes.length > 1
                         ? () => _removeReminderTime(index)
@@ -271,11 +298,23 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                   ),
                   TextButton.icon(
                     onPressed: () {
-                      final randomQuote = (List.from(_quotePresets)..shuffle()).first;
+                      final randomQuote = (List.from(
+                        _quotePresets,
+                      )..shuffle()).first;
                       setState(() => _quoteController.text = randomQuote);
                     },
-                    icon: const Icon(Icons.shuffle, size: 14, color: AppTheme.accentCyan),
-                    label: const Text('Randomize', style: TextStyle(fontSize: 12, color: AppTheme.accentCyan)),
+                    icon: const Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 14,
+                      color: AppTheme.accentCyan,
+                    ),
+                    label: const Text(
+                      'Randomize',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.accentCyan,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -322,7 +361,11 @@ class _AddEditGoalModalState extends State<AddEditGoalModal> {
                         ),
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check, size: 18, color: Colors.black)
+                          ? const Icon(
+                              Icons.check_rounded,
+                              size: 18,
+                              color: Colors.black,
+                            )
                           : null,
                     ),
                   );

@@ -20,10 +20,7 @@ class GoalLoadedState extends GoalState {
   final List<GoalModel> goals;
   final Map<String, int> todayMinutesByGoalId;
 
-  const GoalLoadedState(
-    this.goals, {
-    this.todayMinutesByGoalId = const {},
-  });
+  const GoalLoadedState(this.goals, {this.todayMinutesByGoalId = const {}});
 
   @override
   List<Object?> get props => [goals, todayMinutesByGoalId];

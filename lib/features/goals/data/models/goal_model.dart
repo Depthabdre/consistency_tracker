@@ -32,7 +32,9 @@ class GoalModel extends Equatable {
     if (reminderTimes.isNotEmpty) {
       return reminderTimes;
     }
-    return [ReminderTimeModel(hour: reminderTimeHour, minute: reminderTimeMinute)];
+    return [
+      ReminderTimeModel(hour: reminderTimeHour, minute: reminderTimeMinute),
+    ];
   }
 
   Map<String, dynamic> toJson() {
@@ -122,16 +124,16 @@ class GoalModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        title,
-        description,
-        targetMinutes,
-        reminderTimeHour,
-        reminderTimeMinute,
-        reminderTimes,
-        motivationalQuote,
-        colorHex,
-        createdAt,
-        isActive,
-      ];
+    id,
+    title,
+    description,
+    targetMinutes,
+    reminderTimeHour,
+    reminderTimeMinute,
+    reminderTimes,
+    motivationalQuote,
+    colorHex,
+    createdAt,
+    isActive,
+  ];
 }

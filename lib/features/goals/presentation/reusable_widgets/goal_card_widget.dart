@@ -8,6 +8,7 @@ class GoalCardWidget extends StatelessWidget {
   final VoidCallback onStartFocus;
   final VoidCallback onViewCalendar;
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
 
   const GoalCardWidget({
     super.key,
@@ -16,6 +17,7 @@ class GoalCardWidget extends StatelessWidget {
     required this.onStartFocus,
     required this.onViewCalendar,
     required this.onDelete,
+    this.onEdit,
   });
 
   Color _parseColor(String hex) {
@@ -74,16 +76,25 @@ class GoalCardWidget extends StatelessWidget {
                 ),
                 if (isTargetMet)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.successGreen.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.successGreen.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppTheme.successGreen.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: AppTheme.successGreen,
+                        ),
                         SizedBox(width: 4),
                         Text(
                           'Target Completed Today',
@@ -105,19 +116,52 @@ class GoalCardWidget extends StatelessWidget {
                     ),
                   ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_horiz, color: AppTheme.textMuted, size: 20),
+                  icon: const Icon(
+                    Icons.more_horiz_rounded,
+                    color: AppTheme.textMuted,
+                    size: 20,
+                  ),
                   color: AppTheme.surfaceCard,
                   onSelected: (val) {
-                    if (val == 'delete') onDelete();
+                    if (val == 'edit' && onEdit != null) {
+                      onEdit!();
+                    } else if (val == 'delete') {
+                      onDelete();
+                    }
                   },
                   itemBuilder: (context) => [
+                    if (onEdit != null)
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit_rounded,
+                              size: 18,
+                              color: AppTheme.accentCyan,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Edit Goal',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
                     const PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline, size: 18, color: Color(0xFFF43F5E)),
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: Color(0xFFF43F5E),
+                          ),
                           SizedBox(width: 8),
-                          Text('Delete Goal', style: TextStyle(color: Color(0xFFF43F5E))),
+                          Text(
+                            'Delete Goal',
+                            style: TextStyle(color: Color(0xFFF43F5E)),
+                          ),
                         ],
                       ),
                     ),
@@ -147,17 +191,25 @@ class GoalCardWidget extends StatelessWidget {
                   runSpacing: 6,
                   children: reminders.map((r) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF262626),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.borderOutline.withValues(alpha: 0.6)),
+                        border: Border.all(
+                          color: AppTheme.borderOutline.withValues(alpha: 0.6),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.notifications_outlined,
-                              size: 12, color: AppTheme.accentCyan),
+                          const Icon(
+                            Icons.notifications_none_rounded,
+                            size: 13,
+                            color: AppTheme.accentCyan,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             r.formattedTime,
@@ -181,7 +233,9 @@ class GoalCardWidget extends StatelessWidget {
                   'Today: $todayFocusedMinutes / ${goal.targetMinutes} mins',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: isTargetMet ? AppTheme.successGreen : AppTheme.textMuted,
+                    color: isTargetMet
+                        ? AppTheme.successGreen
+                        : AppTheme.textMuted,
                     fontWeight: isTargetMet ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
@@ -195,16 +249,23 @@ class GoalCardWidget extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progressRatio,
-                minHeight: 6,
-                backgroundColor: const Color(0xFF262626),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  isTargetMet ? AppTheme.successGreen : accentColor,
-                ),
-              ),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: progressRatio),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              builder: (context, animatedValue, child) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: animatedValue,
+                    minHeight: 6,
+                    backgroundColor: const Color(0xFF262626),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isTargetMet ? AppTheme.successGreen : accentColor,
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 18),
 
@@ -212,19 +273,20 @@ class GoalCardWidget extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: OutlinedButton.icon(
                     onPressed: onViewCalendar,
+                    icon: const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 15,
+                    ),
+                    label: const Text('Heatmap'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textPrimary,
-                      side: const BorderSide(color: Color(0xFF4F4F4F)),
+                      side: const BorderSide(color: AppTheme.borderOutline),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
-                    ),
-                    child: const Text(
-                      'View Heatmap',
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
@@ -232,7 +294,11 @@ class GoalCardWidget extends StatelessWidget {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: onStartFocus,
-                    icon: const Icon(Icons.play_arrow, size: 18, color: Colors.black),
+                    icon: const Icon(
+                      Icons.play_arrow_rounded,
+                      size: 18,
+                      color: Colors.black,
+                    ),
                     label: const Text('Start Focus'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.accentCyan,
