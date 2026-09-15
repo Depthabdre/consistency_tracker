@@ -37,10 +37,10 @@ class FocusSessionModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        goalId,
-        durationMinutes,
-        timestamp,
-        completedTargetMet,
-      ];
+    id,
+    goalId,
+    durationMinutes,
+    timestamp,
+    completedTargetMet,
+  ];
 }

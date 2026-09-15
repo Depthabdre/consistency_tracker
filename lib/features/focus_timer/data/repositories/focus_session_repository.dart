@@ -14,7 +14,9 @@ class FocusSessionRepositoryImpl implements FocusSessionRepository {
   FocusSessionRepositoryImpl({required this.localDataSource});
 
   @override
-  Future<Result<List<FocusSessionModel>>> getSessionsForGoal(String goalId) async {
+  Future<Result<List<FocusSessionModel>>> getSessionsForGoal(
+    String goalId,
+  ) async {
     try {
       final sessions = await localDataSource.getSessionsForGoal(goalId);
       return Result.success(sessions);

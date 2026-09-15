@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class TimerControls extends StatelessWidget {
   const TimerControls({
@@ -24,7 +25,7 @@ class TimerControls extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: isPaused ? onResume : onPause,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF53B5EA),
+              backgroundColor: AppTheme.accentCyan,
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               textStyle: const TextStyle(
@@ -35,7 +36,10 @@ class TimerControls extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, size: 20),
+            icon: Icon(
+              isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              size: 20,
+            ),
             label: Text(isPaused ? 'Resume session' : 'Pause session'),
           ),
         ),
@@ -45,8 +49,8 @@ class TimerControls extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: onStop,
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFD0D0D0),
-              side: const BorderSide(color: Color(0xFF4F4F4F)),
+              foregroundColor: AppTheme.textSecondary,
+              side: const BorderSide(color: AppTheme.borderOutline),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               textStyle: const TextStyle(
                 fontSize: 14,
@@ -56,7 +60,7 @@ class TimerControls extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            icon: const Icon(Icons.stop, size: 20),
+            icon: const Icon(Icons.stop_rounded, size: 20),
             label: const Text('Stop session'),
           ),
         ),

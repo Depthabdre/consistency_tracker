@@ -14,7 +14,10 @@ class FocusSessionLocalDataSourceImpl implements FocusSessionLocalDataSource {
     final box = await Hive.openBox(boxName);
     final rawList = box.values.toList();
     return rawList
-        .map((e) => FocusSessionModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) =>
+              FocusSessionModel.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
         .where((s) => s.goalId == goalId)
         .toList();
   }

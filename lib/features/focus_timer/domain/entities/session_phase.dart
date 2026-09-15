@@ -32,9 +32,9 @@ class FocusSessionPlan extends Equatable {
 
   @override
   List<Object?> get props => [
-        totalTargetMinutes,
-        phases,
-        totalFocusSeconds,
-        totalBreakSeconds,
-      ];
+    totalTargetMinutes,
+    phases,
+    totalFocusSeconds,
+    totalBreakSeconds,
+  ];
 }

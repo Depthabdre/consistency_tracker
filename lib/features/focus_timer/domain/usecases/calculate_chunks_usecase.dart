@@ -7,7 +7,9 @@ class CalculateChunksUseCase {
     required AppSettings settings,
     bool skipBreaks = false,
   }) {
-    final int safeTargetMinutes = totalTargetMinutes <= 0 ? 5 : totalTargetMinutes;
+    final int safeTargetMinutes = totalTargetMinutes <= 0
+        ? 5
+        : totalTargetMinutes;
 
     if (skipBreaks || settings.breakDurationMinutes <= 0) {
       final singlePhase = SessionPhase(
@@ -23,7 +25,9 @@ class CalculateChunksUseCase {
       );
     }
 
-    final int focusMins = settings.focusDurationMinutes <= 0 ? 25 : settings.focusDurationMinutes;
+    final int focusMins = settings.focusDurationMinutes <= 0
+        ? 25
+        : settings.focusDurationMinutes;
     final int breakMins = settings.breakDurationMinutes;
 
     final List<SessionPhase> phases = [];
@@ -32,26 +36,31 @@ class CalculateChunksUseCase {
     int totalBreakSecs = 0;
 
     while (remainingMinsToChunk > 0) {
-      final int currentFocusMins =
-          remainingMinsToChunk > focusMins ? focusMins : remainingMinsToChunk;
+      final int currentFocusMins = remainingMinsToChunk > focusMins
+          ? focusMins
+          : remainingMinsToChunk;
       final int focusSecs = currentFocusMins * 60;
 
-      phases.add(SessionPhase(
-        type: SessionPhaseType.focus,
-        durationSeconds: focusSecs,
-        labelMinutes: currentFocusMins,
-      ));
+      phases.add(
+        SessionPhase(
+          type: SessionPhaseType.focus,
+          durationSeconds: focusSecs,
+          labelMinutes: currentFocusMins,
+        ),
+      );
       totalFocusSecs += focusSecs;
       remainingMinsToChunk -= currentFocusMins;
 
       // Add a break phase if there is still remaining target focus time left
       if (remainingMinsToChunk > 0 && breakMins > 0) {
         final int breakSecs = breakMins * 60;
-        phases.add(SessionPhase(
-          type: SessionPhaseType.breakTime,
-          durationSeconds: breakSecs,
-          labelMinutes: breakMins,
-        ));
+        phases.add(
+          SessionPhase(
+            type: SessionPhaseType.breakTime,
+            durationSeconds: breakSecs,
+            labelMinutes: breakMins,
+          ),
+        );
         totalBreakSecs += breakSecs;
       }
     }

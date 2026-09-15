@@ -8,6 +8,7 @@ import '../../../calendar_heatmap/presentation/bloc/calendar_event.dart';
 import '../../../goals/data/models/goal_model.dart';
 import '../../../goals/presentation/bloc/goal_bloc.dart';
 import '../../../goals/presentation/bloc/goal_event.dart';
+import '../../../notifications/data/repositories/notification_repository.dart';
 import '../../../settings/domain/entities/app_settings.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../settings/presentation/bloc/settings_state.dart';
@@ -18,6 +19,7 @@ import '../bloc/focus_timer_event.dart';
 import '../bloc/focus_timer_state.dart';
 import '../reusable_widgets/circular_timer_widget.dart';
 import '../reusable_widgets/timer_controls.dart';
+import 'package:flutter/services.dart';
 
 class FocusTimerPage extends StatefulWidget {
   final GoalModel goal;
@@ -30,11 +32,18 @@ class FocusTimerPage extends StatefulWidget {
 
 class _FocusTimerPageState extends State<FocusTimerPage> {
   late int _selectedMinutes;
+  final FocusNode _keyboardFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _selectedMinutes = widget.goal.targetMinutes;
+  }
+
+  @override
+  void dispose() {
+    _keyboardFocusNode.dispose();
+    super.dispose();
   }
 
   @override
@@ -45,96 +54,133 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
         : AppSettings.defaults;
 
     final timerState = context.watch<FocusTimerBloc>().state;
-    final bool isRunningOrPaused = timerState is FocusTimerRunningState ||
+    final bool isRunningOrPaused =
+        timerState is FocusTimerRunningState ||
         timerState is FocusTimerPausedState;
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundStart,
-      appBar: AppBar(
-        title: Text(widget.goal.title),
-        actions: [
-          if (!isRunningOrPaused)
-            IconButton(
-              icon: const Icon(Icons.more_horiz, color: Color(0xFFE2E2E2)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SettingsPage()),
+    return KeyboardListener(
+      focusNode: _keyboardFocusNode,
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.space) {
+            final current = context.read<FocusTimerBloc>().state;
+            if (current is FocusTimerRunningState) {
+              context.read<FocusTimerBloc>().add(const PauseFocusTimerEvent());
+            } else if (current is FocusTimerPausedState) {
+              context.read<FocusTimerBloc>().add(const ResumeFocusTimerEvent());
+            }
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundStart,
+        appBar: AppBar(
+          title: Text(widget.goal.title),
+          actions: [
+            if (!isRunningOrPaused)
+              IconButton(
+                icon: const Icon(
+                  Icons.more_horiz_rounded,
+                  color: AppTheme.textPrimary,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsPage(),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: AppTheme.backgroundGradient,
+          ),
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final double maxWidth = constraints.maxWidth < 600 ? 460 : 700;
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 20,
+                      ),
+                      child: BlocConsumer<FocusTimerBloc, FocusTimerState>(
+                        listener: (context, state) {
+                          if (state is FocusTimerCompletedState) {
+                            _handleCompletedSession(context, state);
+                          }
+                        },
+                        builder: (context, currentTimerState) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  child: isRunningOrPaused
+                                      ? _ActiveSessionContent(
+                                          goal: widget.goal,
+                                          timerState: currentTimerState,
+                                        )
+                                      : _NoSessionContent(
+                                          goal: widget.goal,
+                                          selectedMinutes: _selectedMinutes,
+                                          focusDuration: activeSettings
+                                              .focusDurationMinutes,
+                                          breakDuration: activeSettings
+                                              .breakDurationMinutes,
+                                          onMinutesChanged: (newMins) {
+                                            setState(
+                                              () => _selectedMinutes = newMins,
+                                            );
+                                          },
+                                          onMinusTap: () {
+                                            setState(() {
+                                              _selectedMinutes =
+                                                  (_selectedMinutes - 5).clamp(
+                                                    5,
+                                                    720,
+                                                  );
+                                            });
+                                          },
+                                          onPlusTap: () {
+                                            setState(() {
+                                              _selectedMinutes =
+                                                  (_selectedMinutes + 5).clamp(
+                                                    5,
+                                                    720,
+                                                  );
+                                            });
+                                          },
+                                          onStartTap: (skipBreaks) {
+                                            context.read<FocusTimerBloc>().add(
+                                              StartFocusTimerEvent(
+                                                goalId: widget.goal.id,
+                                                targetMinutes: _selectedMinutes,
+                                                settings: activeSettings,
+                                                skipBreaks: skipBreaks,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final double maxWidth = constraints.maxWidth < 600 ? 460 : 700;
-              return Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    child: BlocConsumer<FocusTimerBloc, FocusTimerState>(
-                      listener: (context, state) {
-                        if (state is FocusTimerCompletedState) {
-                          _handleCompletedSession(context, state);
-                        }
-                      },
-                      builder: (context, currentTimerState) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: isRunningOrPaused
-                                    ? _ActiveSessionContent(
-                                        goal: widget.goal,
-                                        timerState: currentTimerState,
-                                      )
-                                    : _NoSessionContent(
-                                        goal: widget.goal,
-                                        selectedMinutes: _selectedMinutes,
-                                        focusDuration: activeSettings.focusDurationMinutes,
-                                        breakDuration: activeSettings.breakDurationMinutes,
-                                        onMinutesChanged: (newMins) {
-                                          setState(() => _selectedMinutes = newMins);
-                                        },
-                                        onMinusTap: () {
-                                          setState(() {
-                                            _selectedMinutes =
-                                                (_selectedMinutes - 5).clamp(5, 720);
-                                          });
-                                        },
-                                        onPlusTap: () {
-                                          setState(() {
-                                            _selectedMinutes =
-                                                (_selectedMinutes + 5).clamp(5, 720);
-                                          });
-                                        },
-                                        onStartTap: (skipBreaks) {
-                                          context.read<FocusTimerBloc>().add(
-                                                StartFocusTimerEvent(
-                                                  goalId: widget.goal.id,
-                                                  targetMinutes: _selectedMinutes,
-                                                  settings: activeSettings,
-                                                  skipBreaks: skipBreaks,
-                                                ),
-                                              );
-                                        },
-                                      ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              );
-            },
           ),
         ),
       ),
@@ -142,7 +188,9 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
   }
 
   void _handleCompletedSession(
-      BuildContext context, FocusTimerCompletedState state) async {
+    BuildContext context,
+    FocusTimerCompletedState state,
+  ) async {
     final calendarRepository = context.read<CalendarRepository>();
 
     final result = await calendarRepository.addFocusMinutesToToday(
@@ -159,23 +207,36 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
         final isTargetMet = updatedDay.isCompleted;
 
         // Reload CalendarBloc entries for this goalId
-        context.read<CalendarBloc>().add(LoadCalendarEntriesEvent(widget.goal.id));
+        context.read<CalendarBloc>().add(
+          LoadCalendarEntriesEvent(widget.goal.id),
+        );
 
         // Synchronize GoalBloc today's progress map specifically for this goalId
         context.read<GoalBloc>().add(
-              UpdateGoalProgressEvent(
-                goalId: widget.goal.id,
-                todayMinutes: cumulativeToday,
-              ),
+          UpdateGoalProgressEvent(
+            goalId: widget.goal.id,
+            todayMinutes: cumulativeToday,
+          ),
+        );
+
+        // If daily target is reached, cancel remaining escalation notifications for today
+        if (isTargetMet) {
+          try {
+            context.read<NotificationRepository>().cancelGoalReminders(
+              widget.goal.id,
             );
+          } catch (_) {}
+        }
 
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (dialogContext) => AlertDialog(
             backgroundColor: AppTheme.surfaceCard,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 28,
+              vertical: 36,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
               side: const BorderSide(color: AppTheme.borderOutline, width: 1.2),
@@ -186,26 +247,35 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                 Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: isTargetMet ? AppTheme.successGreen : AppTheme.accentCyan,
+                    color: isTargetMet
+                        ? AppTheme.successGreen
+                        : AppTheme.accentCyan,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: (isTargetMet ? AppTheme.successGreen : AppTheme.accentCyan)
-                            .withValues(alpha: 0.25),
+                        color:
+                            (isTargetMet
+                                    ? AppTheme.successGreen
+                                    : AppTheme.accentCyan)
+                                .withValues(alpha: 0.25),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
                     ],
                   ),
                   child: Icon(
-                    isTargetMet ? Icons.emoji_events : Icons.check,
+                    isTargetMet
+                        ? Icons.workspace_premium_rounded
+                        : Icons.task_alt_rounded,
                     size: 44,
                     color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 22),
                 Text(
-                  isTargetMet ? 'Daily Target Completed!' : 'Focus Session Saved!',
+                  isTargetMet
+                      ? 'Daily Target Completed!'
+                      : 'Focus Session Saved!',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -254,9 +324,9 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
         );
       },
       onFailure: (failure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
       },
     );
   }
@@ -295,8 +365,9 @@ class _NoSessionContentState extends State<_NoSessionContent> {
   @override
   void initState() {
     super.initState();
-    _minutesController =
-        TextEditingController(text: widget.selectedMinutes.toString());
+    _minutesController = TextEditingController(
+      text: widget.selectedMinutes.toString(),
+    );
     _minutesFocusNode.addListener(() {
       if (!_minutesFocusNode.hasFocus) {
         _submitMinutes();
@@ -332,10 +403,14 @@ class _NoSessionContentState extends State<_NoSessionContent> {
   @override
   Widget build(BuildContext context) {
     final int blockDuration = widget.focusDuration + widget.breakDuration;
-    final int plannedBreaks = blockDuration > 0 ? widget.selectedMinutes ~/ blockDuration : 0;
+    final int plannedBreaks = blockDuration > 0
+        ? widget.selectedMinutes ~/ blockDuration
+        : 0;
 
     String breakLabel;
-    if (_skipBreaks || widget.selectedMinutes <= widget.focusDuration || plannedBreaks == 0) {
+    if (_skipBreaks ||
+        widget.selectedMinutes <= widget.focusDuration ||
+        plannedBreaks == 0) {
       breakLabel = 'You\'ll have no breaks.';
     } else if (plannedBreaks == 1) {
       breakLabel = 'You\'ll have 1 break.';
@@ -357,10 +432,10 @@ class _NoSessionContentState extends State<_NoSessionContent> {
             'Ready, set, focus!',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  fontSize: 22,
-                ),
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              fontSize: 22,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -368,12 +443,55 @@ class _NoSessionContentState extends State<_NoSessionContent> {
             'Tell us how much time you have, and we\'ll\nset up the rest.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFD0D0D0),
-                  fontSize: 14,
-                  height: 1.4,
-                ),
+              color: const Color(0xFFD0D0D0),
+              fontSize: 14,
+              height: 1.4,
+            ),
           ),
-          const SizedBox(height: 38),
+          const SizedBox(height: 30),
+
+          // Quick Presets
+          Wrap(
+            spacing: 8,
+            children: [15, 25, 45, 60].map((mins) {
+              final isSelected = widget.selectedMinutes == mins;
+              return GestureDetector(
+                onTap: () {
+                  widget.onMinutesChanged(mins);
+                  _minutesController.text = mins.toString();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppTheme.accentCyan.withValues(alpha: 0.2)
+                        : const Color(0xFF383838),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppTheme.accentCyan
+                          : const Color(0xFF4F4F4F),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Text(
+                    '${mins}m',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: isSelected ? AppTheme.accentCyan : Colors.white,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
 
           // Duration Stepper Box
           Container(
@@ -436,12 +554,16 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: widget.onMinusTap,
-                            borderRadius:
-                                const BorderRadius.only(topRight: Radius.circular(8)),
+                            onTap: widget.onPlusTap,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(8),
+                            ),
                             child: const Center(
-                              child: Icon(Icons.keyboard_arrow_up,
-                                  color: Color(0xFFE2E2E2), size: 28),
+                              child: Icon(
+                                Icons.keyboard_arrow_up_rounded,
+                                color: Color(0xFFE2E2E2),
+                                size: 28,
+                              ),
                             ),
                           ),
                         ),
@@ -451,12 +573,16 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: widget.onPlusTap,
+                            onTap: widget.onMinusTap,
                             borderRadius: const BorderRadius.only(
-                                bottomRight: Radius.circular(8)),
+                              bottomRight: Radius.circular(8),
+                            ),
                             child: const Center(
-                              child: Icon(Icons.keyboard_arrow_down,
-                                  color: Color(0xFFE2E2E2), size: 28),
+                              child: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: Color(0xFFE2E2E2),
+                                size: 28,
+                              ),
                             ),
                           ),
                         ),
@@ -502,17 +628,15 @@ class _NoSessionContentState extends State<_NoSessionContent> {
                   }),
                   checkColor: Colors.black,
                   side: const BorderSide(color: Color(0xFFA0A0A0), width: 1.5),
-                  shape:
-                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               const Text(
                 'Skip breaks',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFFA0A0A0),
-                ),
+                style: TextStyle(fontSize: 14, color: Color(0xFFA0A0A0)),
               ),
             ],
           ),
@@ -523,7 +647,11 @@ class _NoSessionContentState extends State<_NoSessionContent> {
             height: 40,
             child: FilledButton.icon(
               onPressed: () => widget.onStartTap(_skipBreaks),
-              icon: const Icon(Icons.play_arrow, size: 20, color: Colors.black),
+              icon: const Icon(
+                Icons.play_arrow_rounded,
+                size: 20,
+                color: Colors.black,
+              ),
               label: const Text('Start focus session'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.accentCyan,
@@ -549,10 +677,7 @@ class _ActiveSessionContent extends StatelessWidget {
   final GoalModel goal;
   final FocusTimerState timerState;
 
-  const _ActiveSessionContent({
-    required this.goal,
-    required this.timerState,
-  });
+  const _ActiveSessionContent({required this.goal, required this.timerState});
 
   @override
   Widget build(BuildContext context) {
@@ -603,8 +728,12 @@ class _ActiveSessionContent extends StatelessWidget {
 
     final bool isBreak = phaseType == SessionPhaseType.breakTime;
     final String headline = isBreak
-        ? (breakCount > 1 ? 'Break ($currentBreakIndex of $breakCount)' : 'Break period')
-        : (focusCount > 1 ? 'Focus period ($currentFocusIndex of $focusCount)' : 'Focus period');
+        ? (breakCount > 1
+              ? 'Break ($currentBreakIndex of $breakCount)'
+              : 'Break period')
+        : (focusCount > 1
+              ? 'Focus period ($currentFocusIndex of $focusCount)'
+              : 'Focus period');
 
     return Container(
       decoration: BoxDecoration(
@@ -628,22 +757,31 @@ class _ActiveSessionContent extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 24, right: 24, top: 48, bottom: 24),
+            padding: const EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 48,
+              bottom: 24,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final Size screenSize = MediaQuery.sizeOf(context);
-                    final double size = math.min(
-                      constraints.maxWidth * 0.7,
-                      screenSize.height * 0.50,
-                    ).clamp(110.0, 520.0);
+                    final double size = math
+                        .min(
+                          constraints.maxWidth * 0.7,
+                          screenSize.height * 0.50,
+                        )
+                        .clamp(110.0, 520.0);
 
                     return CircularProgressTimer(
                       remainingSeconds: remainingSeconds,
                       totalSeconds: totalPhaseSeconds,
-                      phaseType: isBreak ? SessionPhaseType.breakTime : SessionPhaseType.focus,
+                      phaseType: isBreak
+                          ? SessionPhaseType.breakTime
+                          : SessionPhaseType.focus,
                       size: size,
                     );
                   },
@@ -654,8 +792,8 @@ class _ActiveSessionContent extends StatelessWidget {
                   isPaused
                       ? 'Session Paused'
                       : isBreak
-                          ? 'Break phase active'
-                          : 'Focus session active',
+                      ? 'Break phase active'
+                      : 'Focus session active',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -668,15 +806,59 @@ class _ActiveSessionContent extends StatelessWidget {
                 TimerControls(
                   isPaused: isPaused,
                   onPause: () {
-                    context.read<FocusTimerBloc>().add(const PauseFocusTimerEvent());
+                    context.read<FocusTimerBloc>().add(
+                      const PauseFocusTimerEvent(),
+                    );
                   },
                   onResume: () {
-                    context.read<FocusTimerBloc>().add(const ResumeFocusTimerEvent());
+                    context.read<FocusTimerBloc>().add(
+                      const ResumeFocusTimerEvent(),
+                    );
                   },
                   onStop: () {
-                    context.read<FocusTimerBloc>().add(const CompleteFocusTimerEvent());
+                    context.read<FocusTimerBloc>().add(
+                      const CompleteFocusTimerEvent(),
+                    );
                   },
                 ),
+                if (goal.motivationalQuote.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF262626),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.borderOutline.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.format_quote_rounded,
+                          size: 16,
+                          color: AppTheme.accentCyan,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            goal.motivationalQuote,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontStyle: FontStyle.italic,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

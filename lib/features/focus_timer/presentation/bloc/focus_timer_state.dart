@@ -35,20 +35,20 @@ class FocusTimerRunningState extends FocusTimerState {
 
   SessionPhase? get currentPhase =>
       phases.isNotEmpty && currentPhaseIndex < phases.length
-          ? phases[currentPhaseIndex]
-          : null;
+      ? phases[currentPhaseIndex]
+      : null;
 
   @override
   List<Object?> get props => [
-        goalId,
-        targetMinutes,
-        elapsedSeconds,
-        isTargetReached,
-        phases,
-        currentPhaseIndex,
-        remainingSecondsInPhase,
-        targetEndTime,
-      ];
+    goalId,
+    targetMinutes,
+    elapsedSeconds,
+    isTargetReached,
+    phases,
+    currentPhaseIndex,
+    remainingSecondsInPhase,
+    targetEndTime,
+  ];
 }
 
 class FocusTimerPausedState extends FocusTimerState {
@@ -70,18 +70,18 @@ class FocusTimerPausedState extends FocusTimerState {
 
   SessionPhase? get currentPhase =>
       phases.isNotEmpty && currentPhaseIndex < phases.length
-          ? phases[currentPhaseIndex]
-          : null;
+      ? phases[currentPhaseIndex]
+      : null;
 
   @override
   List<Object?> get props => [
-        goalId,
-        targetMinutes,
-        elapsedSeconds,
-        phases,
-        currentPhaseIndex,
-        remainingSecondsInPhase,
-      ];
+    goalId,
+    targetMinutes,
+    elapsedSeconds,
+    phases,
+    currentPhaseIndex,
+    remainingSecondsInPhase,
+  ];
 }
 
 class FocusTimerCompletedState extends FocusTimerState {

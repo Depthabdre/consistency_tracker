@@ -29,11 +29,12 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
     ManageTimerUseCase? manageTimerUseCase,
     AudioService? audioService,
     NotificationService? notificationService,
-  })  : calculateChunksUseCase = calculateChunksUseCase ?? CalculateChunksUseCase(),
-        manageTimerUseCase = manageTimerUseCase ?? ManageTimerUseCase(),
-        audioService = audioService ?? AudioServiceImpl(),
-        notificationService = notificationService ?? DummyNotificationService(),
-        super(const FocusTimerInitialState()) {
+  }) : calculateChunksUseCase =
+           calculateChunksUseCase ?? CalculateChunksUseCase(),
+       manageTimerUseCase = manageTimerUseCase ?? ManageTimerUseCase(),
+       audioService = audioService ?? AudioServiceImpl(),
+       notificationService = notificationService ?? DummyNotificationService(),
+       super(const FocusTimerInitialState()) {
     on<StartFocusTimerEvent>(_onStartTimer);
     on<TickFocusTimerEvent>(_onTickTimer);
     on<PauseFocusTimerEvent>(_onPauseTimer);
@@ -62,16 +63,18 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
       durationSeconds: firstPhase.durationSeconds,
     );
 
-    emit(FocusTimerRunningState(
-      goalId: event.goalId,
-      targetMinutes: event.targetMinutes,
-      elapsedSeconds: 0,
-      isTargetReached: false,
-      phases: plan.phases,
-      currentPhaseIndex: 0,
-      remainingSecondsInPhase: firstPhase.durationSeconds,
-      targetEndTime: targetEndTime,
-    ));
+    emit(
+      FocusTimerRunningState(
+        goalId: event.goalId,
+        targetMinutes: event.targetMinutes,
+        elapsedSeconds: 0,
+        isTargetReached: false,
+        phases: plan.phases,
+        currentPhaseIndex: 0,
+        remainingSecondsInPhase: firstPhase.durationSeconds,
+        targetEndTime: targetEndTime,
+      ),
+    );
 
     _startTicker();
   }
@@ -93,26 +96,33 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
 
     final currentPhase = currentState.currentPhase;
 
+    // Calculate actual elapsed seconds in this tick based on remaining seconds change
+    final int delta = remainingInPhase > 0
+        ? math.max(1, currentState.remainingSecondsInPhase - remainingInPhase)
+        : currentState.remainingSecondsInPhase;
+
     // Accumulate total overall elapsed seconds
-    final int totalElapsedSeconds = currentState.elapsedSeconds + 1;
+    final int totalElapsedSeconds = currentState.elapsedSeconds + delta;
     final int targetSeconds = currentState.targetMinutes * 60;
     final bool isReached = totalElapsedSeconds >= targetSeconds;
 
     if (currentPhase?.type == SessionPhaseType.focus) {
-      _accumulatedFocusSeconds += 1;
+      _accumulatedFocusSeconds += delta;
     }
 
     if (remainingInPhase > 0) {
-      emit(FocusTimerRunningState(
-        goalId: currentState.goalId,
-        targetMinutes: currentState.targetMinutes,
-        elapsedSeconds: totalElapsedSeconds,
-        isTargetReached: isReached,
-        phases: currentState.phases,
-        currentPhaseIndex: currentState.currentPhaseIndex,
-        remainingSecondsInPhase: remainingInPhase,
-        targetEndTime: currentState.targetEndTime,
-      ));
+      emit(
+        FocusTimerRunningState(
+          goalId: currentState.goalId,
+          targetMinutes: currentState.targetMinutes,
+          elapsedSeconds: totalElapsedSeconds,
+          isTargetReached: isReached,
+          phases: currentState.phases,
+          currentPhaseIndex: currentState.currentPhaseIndex,
+          remainingSecondsInPhase: remainingInPhase,
+          targetEndTime: currentState.targetEndTime,
+        ),
+      );
       return;
     }
 
@@ -129,7 +139,8 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
     if (nextIndex >= currentState.phases.length) {
       _tickerTimer?.cancel();
       final focusMins = (_accumulatedFocusSeconds / 60).floor();
-      final isTargetMet = _accumulatedFocusSeconds >= (currentState.targetMinutes * 60);
+      final isTargetMet =
+          _accumulatedFocusSeconds >= (currentState.targetMinutes * 60);
 
       final session = FocusSessionModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -140,17 +151,21 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
       );
 
       await sessionRepository.saveSession(session);
-      await audioService.playTransitionSound(enabled: _activeSettings.soundEnabled);
+      await audioService.playTransitionSound(
+        enabled: _activeSettings.soundEnabled,
+      );
       await notificationService.showPhaseNotification(
         title: 'Focus session complete',
         body: 'Great work! You reached your target time.',
         enabled: _activeSettings.notificationsEnabled,
       );
 
-      emit(FocusTimerCompletedState(
-        goalId: currentState.goalId,
-        totalMinutesCompleted: focusMins,
-      ));
+      emit(
+        FocusTimerCompletedState(
+          goalId: currentState.goalId,
+          totalMinutesCompleted: focusMins,
+        ),
+      );
       return;
     }
 
@@ -161,25 +176,31 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
       durationSeconds: nextPhase.durationSeconds,
     );
 
-    await audioService.playTransitionSound(enabled: _activeSettings.soundEnabled);
+    await audioService.playTransitionSound(
+      enabled: _activeSettings.soundEnabled,
+    );
     await notificationService.showPhaseNotification(
-      title: nextPhase.type == SessionPhaseType.breakTime ? 'Break time ☕' : 'Focus time 🎯',
+      title: nextPhase.type == SessionPhaseType.breakTime
+          ? 'Break time ☕'
+          : 'Focus time 🎯',
       body: nextPhase.type == SessionPhaseType.breakTime
           ? 'Take a short break before your next focus block.'
           : 'Break is over. Ready to focus?',
       enabled: _activeSettings.notificationsEnabled,
     );
 
-    emit(FocusTimerRunningState(
-      goalId: currentState.goalId,
-      targetMinutes: currentState.targetMinutes,
-      elapsedSeconds: currentState.elapsedSeconds,
-      isTargetReached: currentState.isTargetReached,
-      phases: currentState.phases,
-      currentPhaseIndex: nextIndex,
-      remainingSecondsInPhase: nextPhase.durationSeconds,
-      targetEndTime: nextTargetEnd,
-    ));
+    emit(
+      FocusTimerRunningState(
+        goalId: currentState.goalId,
+        targetMinutes: currentState.targetMinutes,
+        elapsedSeconds: currentState.elapsedSeconds,
+        isTargetReached: currentState.isTargetReached,
+        phases: currentState.phases,
+        currentPhaseIndex: nextIndex,
+        remainingSecondsInPhase: nextPhase.durationSeconds,
+        targetEndTime: nextTargetEnd,
+      ),
+    );
   }
 
   void _onPauseTimer(
@@ -189,14 +210,16 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
     if (state is FocusTimerRunningState) {
       final currentState = state as FocusTimerRunningState;
       _tickerTimer?.cancel();
-      emit(FocusTimerPausedState(
-        goalId: currentState.goalId,
-        targetMinutes: currentState.targetMinutes,
-        elapsedSeconds: currentState.elapsedSeconds,
-        phases: currentState.phases,
-        currentPhaseIndex: currentState.currentPhaseIndex,
-        remainingSecondsInPhase: currentState.remainingSecondsInPhase,
-      ));
+      emit(
+        FocusTimerPausedState(
+          goalId: currentState.goalId,
+          targetMinutes: currentState.targetMinutes,
+          elapsedSeconds: currentState.elapsedSeconds,
+          phases: currentState.phases,
+          currentPhaseIndex: currentState.currentPhaseIndex,
+          remainingSecondsInPhase: currentState.remainingSecondsInPhase,
+        ),
+      );
     }
   }
 
@@ -212,16 +235,19 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
         durationSeconds: currentState.remainingSecondsInPhase,
       );
 
-      emit(FocusTimerRunningState(
-        goalId: currentState.goalId,
-        targetMinutes: currentState.targetMinutes,
-        elapsedSeconds: currentState.elapsedSeconds,
-        isTargetReached: currentState.elapsedSeconds >= (currentState.targetMinutes * 60),
-        phases: currentState.phases,
-        currentPhaseIndex: currentState.currentPhaseIndex,
-        remainingSecondsInPhase: currentState.remainingSecondsInPhase,
-        targetEndTime: targetEndTime,
-      ));
+      emit(
+        FocusTimerRunningState(
+          goalId: currentState.goalId,
+          targetMinutes: currentState.targetMinutes,
+          elapsedSeconds: currentState.elapsedSeconds,
+          isTargetReached:
+              currentState.elapsedSeconds >= (currentState.targetMinutes * 60),
+          phases: currentState.phases,
+          currentPhaseIndex: currentState.currentPhaseIndex,
+          remainingSecondsInPhase: currentState.remainingSecondsInPhase,
+          targetEndTime: targetEndTime,
+        ),
+      );
 
       _startTicker();
     }
@@ -240,8 +266,14 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
           ? (state as FocusTimerRunningState).targetMinutes
           : (state as FocusTimerPausedState).targetMinutes;
 
-      final focusMins = math.max(0, (_accumulatedFocusSeconds / 60).floor());
-      final isTargetMet = _accumulatedFocusSeconds >= (targetMinutes * 60);
+      final effectiveFocusSeconds =
+          (event.elapsedSeconds != null &&
+              event.elapsedSeconds! > 0 &&
+              _accumulatedFocusSeconds == 0)
+          ? event.elapsedSeconds!
+          : _accumulatedFocusSeconds;
+      final focusMins = math.max(0, (effectiveFocusSeconds / 60).floor());
+      final isTargetMet = effectiveFocusSeconds >= (targetMinutes * 60);
 
       final session = FocusSessionModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -253,10 +285,12 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
 
       await sessionRepository.saveSession(session);
 
-      emit(FocusTimerCompletedState(
-        goalId: goalId,
-        totalMinutesCompleted: focusMins,
-      ));
+      emit(
+        FocusTimerCompletedState(
+          goalId: goalId,
+          totalMinutesCompleted: focusMins,
+        ),
+      );
     }
   }
 

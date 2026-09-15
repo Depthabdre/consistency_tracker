@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_formatter.dart';
 import '../../domain/entities/session_phase.dart';
 
@@ -47,8 +48,9 @@ class _CircularProgressTimerState extends State<CircularProgressTimer>
         : (1 - (widget.remainingSeconds / widget.totalSeconds)).clamp(0.0, 1.0);
 
     final Color activeColor = widget.phaseType == SessionPhaseType.breakTime
-        ? const Color(0xFF7ED39A) // Soft green for breaks
-        : const Color(0xFF53B5EA); // Modern Windows 11 focus blue
+        ? AppTheme
+              .successGreen // Soft green for breaks
+        : AppTheme.accentCyan; // Modern Windows 11 focus cyan
 
     return SizedBox(
       width: widget.size,
@@ -68,7 +70,8 @@ class _CircularProgressTimerState extends State<CircularProgressTimer>
                   boxShadow: [
                     BoxShadow(
                       color: activeColor.withValues(
-                          alpha: 0.08 + (_pulseController.value * 0.07)),
+                        alpha: 0.08 + (_pulseController.value * 0.07),
+                      ),
                       blurRadius: 35,
                       spreadRadius: 10,
                     ),
@@ -84,7 +87,7 @@ class _CircularProgressTimerState extends State<CircularProgressTimer>
             painter: SegmentedCircularProgressPainter(
               progress: progress,
               activeColor: activeColor,
-              inactiveColor: const Color(0xFF33353A),
+              inactiveColor: AppTheme.surfaceCard,
               segmentCount: 60,
               strokeWidth: widget.size * 0.021,
             ),
@@ -147,7 +150,9 @@ class SegmentedCircularProgressPainter extends CustomPainter {
 
     for (int i = 0; i < segmentCount; i++) {
       final double startAngle = -math.pi / 2 + (i * sweepAngle);
-      final Paint currentPaint = i < activeSegments ? activePaint : inactivePaint;
+      final Paint currentPaint = i < activeSegments
+          ? activePaint
+          : inactivePaint;
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),

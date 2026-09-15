@@ -23,19 +23,22 @@ void main() {
       expect(fromJson, equals(session));
     });
 
-    test('Edge Case: fromJson should default completedTargetMet to false if missing', () {
-      final minimalJson = {
-        'id': 's2',
-        'goalId': 'g2',
-        'durationMinutes': 15,
-        'timestamp': '2026-08-03T10:00:00.000',
-      };
+    test(
+      'Edge Case: fromJson should default completedTargetMet to false if missing',
+      () {
+        final minimalJson = {
+          'id': 's2',
+          'goalId': 'g2',
+          'durationMinutes': 15,
+          'timestamp': '2026-08-03T10:00:00.000',
+        };
 
-      final parsed = FocusSessionModel.fromJson(minimalJson);
+        final parsed = FocusSessionModel.fromJson(minimalJson);
 
-      expect(parsed.id, equals('s2'));
-      expect(parsed.completedTargetMet, isFalse);
-    });
+        expect(parsed.id, equals('s2'));
+        expect(parsed.completedTargetMet, isFalse);
+      },
+    );
 
     test('Edge Case: 0 duration focus session should parse cleanly', () {
       final zeroSession = FocusSessionModel(
