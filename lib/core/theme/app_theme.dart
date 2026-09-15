@@ -6,11 +6,12 @@ class AppTheme {
   static const Color backgroundEnd = Color(0xFF2A2B2D);
   static const Color surfaceCard = Color(0xFF323232);
   static const Color borderOutline = Color(0xFF3F3F3F);
-  static const Color accentCyan = Color(0xFF53B5EA);     // Primary Focus Cyan
-  static const Color accentIndigo = Color(0xFF6366F1);   // Secondary Indigo
-  static const Color successGreen = Color(0xFF34D399);   // Mint Success
+  static const Color accentCyan = Color(0xFF53B5EA); // Primary Focus Cyan
+  static const Color accentIndigo = Color(0xFF6366F1); // Secondary Indigo
+  static const Color successGreen = Color(0xFF34D399); // Mint Success
   static const Color warningOrange = Color(0xFFF59E0B);
-  
+  static const Color errorRed = Color(0xFFF43F5E);
+
   static const Color textPrimary = Color(0xFFE2E2E2);
   static const Color textSecondary = Color(0xFFD0D0D0);
   static const Color textMuted = Color(0xFFA0A0A0);
@@ -31,7 +32,7 @@ class AppTheme {
         primary: accentCyan,
         secondary: accentIndigo,
         surface: surfaceCard,
-        error: Color(0xFFF43F5E),
+        error: errorRed,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -59,6 +60,30 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: borderOutline, width: 1.2),
         ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surfaceCard,
+        indicatorColor: accentCyan.withValues(alpha: 0.18),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: accentCyan, size: 22);
+          }
+          return const IconThemeData(color: textMuted, size: 22);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(
+              color: accentCyan,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            );
+          }
+          return const TextStyle(
+            color: textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+          );
+        }),
       ),
     );
   }

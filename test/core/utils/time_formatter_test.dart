@@ -23,8 +23,11 @@ void main() {
       expect(formatSecondsDynamic(-10), equals('0s'));
     });
 
-    test('Edge Case: large duration should format into total minutes with m suffix', () {
-      expect(formatSecondsDynamic(7200), equals('120m'));
-    });
+    test(
+      'Edge Case: large duration should format into total minutes with m suffix',
+      () {
+        expect(formatSecondsDynamic(7200), equals('120m'));
+      },
+    );
   });
 }

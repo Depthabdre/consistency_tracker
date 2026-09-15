@@ -5,13 +5,9 @@ class Result<T> {
   final Failure? failure;
   final bool isSuccess;
 
-  const Result.success(this.data)
-      : failure = null,
-        isSuccess = true;
+  const Result.success(this.data) : failure = null, isSuccess = true;
 
-  const Result.failure(this.failure)
-      : data = null,
-        isSuccess = false;
+  const Result.failure(this.failure) : data = null, isSuccess = false;
 
   bool get isFailure => !isSuccess;
 
