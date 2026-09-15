@@ -1,8 +1,17 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 abstract class NotificationLocalDataSource {
   Future<void> initialize();
   Future<void> scheduleGoalNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+  });
+  Future<void> scheduleZonedGoalNotification({
     required int id,
     required String title,
     required String body,
@@ -23,7 +32,27 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
 
   @override
   Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    tz.initializeTimeZones();
+    try {
+      final String timeZoneName = DateTime.now().timeZoneName;
+      if (tz.timeZoneDatabase.locations.containsKey(timeZoneName)) {
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+      } else {
+        final currentOffset = DateTime.now().timeZoneOffset;
+        for (final location in tz.timeZoneDatabase.locations.values) {
+          if (location.currentTimeZone.offset == currentOffset) {
+            tz.setLocalLocation(location);
+            break;
+          }
+        }
+      }
+    } catch (_) {
+      // Gracefully maintain default if resolution is not supported
+    }
+
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -71,7 +100,7 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
   }
 
   @override
-  Future<void> scheduleGoalNotification({
+  Future<void> scheduleZonedGoalNotification({
     required int id,
     required String title,
     required String body,
@@ -81,7 +110,8 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     const androidDetails = AndroidNotificationDetails(
       'consistency_reminders',
       'Goal Reminders',
-      channelDescription: 'Daily reminders to keep your focus consistency streak alive',
+      channelDescription:
+          'Daily reminders to keep your focus consistency streak alive',
       importance: Importance.high,
       priority: Priority.high,
     );
@@ -89,18 +119,53 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     const darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentSound: true,
+      presentBadge: true,
     );
 
     const notificationDetails = NotificationDetails(
       android: androidDetails,
       macOS: darwinDetails,
+      iOS: darwinDetails,
     );
 
-    await _notificationsPlugin.show(
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    await _notificationsPlugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
+      scheduledDate: scheduledDate,
       notificationDetails: notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  @override
+  Future<void> scheduleGoalNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+  }) async {
+    return scheduleZonedGoalNotification(
+      id: id,
+      title: title,
+      body: body,
+      hour: hour,
+      minute: minute,
     );
   }
 
@@ -112,8 +177,8 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
   @override
   Future<void> cancelGoalReminders(String goalId) async {
     final int baseId = goalId.hashCode.abs() % 100000;
-    // Cancel up to 10 potential reminder slots for this goal ID
-    for (int i = 0; i < 10; i++) {
+    // Cancel up to 100 potential reminder and escalation slots for this goal ID
+    for (int i = 0; i < 100; i++) {
       await _notificationsPlugin.cancel(id: baseId + i);
     }
   }

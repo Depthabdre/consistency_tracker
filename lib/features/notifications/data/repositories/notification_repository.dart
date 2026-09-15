@@ -32,7 +32,9 @@ class NotificationRepositoryImpl implements NotificationRepository {
       await localDataSource.initialize();
       return const Result.success(null);
     } catch (e) {
-      return Result.failure(NotificationFailure('Notification init failed: $e'));
+      return Result.failure(
+        NotificationFailure('Notification init failed: $e'),
+      );
     }
   }
 
@@ -45,7 +47,9 @@ class NotificationRepositoryImpl implements NotificationRepository {
       await localDataSource.showImmediateNotification(title: title, body: body);
       return const Result.success(null);
     } catch (e) {
-      return Result.failure(NotificationFailure('Immediate notification failed: $e'));
+      return Result.failure(
+        NotificationFailure('Immediate notification failed: $e'),
+      );
     }
   }
 
@@ -69,8 +73,22 @@ class NotificationRepositoryImpl implements NotificationRepository {
       );
       return const Result.success(null);
     } catch (e) {
-      return Result.failure(NotificationFailure('Failed to schedule reminder: $e'));
+      return Result.failure(
+        NotificationFailure('Failed to schedule reminder: $e'),
+      );
     }
+  }
+
+  static const List<int> _escalationOffsets = [-30, -20, -10, -5, -1, 0];
+
+  static (int, int) _calculateOffsetTime(
+    int hour,
+    int minute,
+    int offsetMinutes,
+  ) {
+    int totalMinutes = (hour * 60 + minute + offsetMinutes) % (24 * 60);
+    if (totalMinutes < 0) totalMinutes += 24 * 60;
+    return (totalMinutes ~/ 60, totalMinutes % 60);
   }
 
   @override
@@ -81,19 +99,45 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
       for (int i = 0; i < reminders.length; i++) {
         final reminder = reminders[i];
-        await localDataSource.scheduleGoalNotification(
-          id: baseId + i,
-          title: 'Target Reminder: ${goal.title}',
-          body: goal.motivationalQuote.isNotEmpty
-              ? goal.motivationalQuote
-              : 'Keep your consistency streak alive! Focus ${goal.targetMinutes} mins today.',
-          hour: reminder.hour,
-          minute: reminder.minute,
-        );
+        for (int j = 0; j < _escalationOffsets.length; j++) {
+          final offset = _escalationOffsets[j];
+          final (hour, minute) = _calculateOffsetTime(
+            reminder.hour,
+            reminder.minute,
+            offset,
+          );
+          final slotId = baseId + (i * 10) + j;
+
+          final String title;
+          final String body;
+
+          if (offset == 0) {
+            title = 'Target Reminder: ${goal.title}';
+            body = goal.motivationalQuote.isNotEmpty
+                ? goal.motivationalQuote
+                : 'Keep your consistency streak alive! Focus ${goal.targetMinutes} mins today.';
+          } else {
+            final minsRemaining = -offset;
+            title = 'Upcoming: ${goal.title} (${minsRemaining}m)';
+            body = goal.motivationalQuote.isNotEmpty
+                ? goal.motivationalQuote
+                : 'Target session begins in $minsRemaining minutes!';
+          }
+
+          await localDataSource.scheduleGoalNotification(
+            id: slotId,
+            title: title,
+            body: body,
+            hour: hour,
+            minute: minute,
+          );
+        }
       }
       return const Result.success(null);
     } catch (e) {
-      return Result.failure(NotificationFailure('Failed to schedule goal reminders: $e'));
+      return Result.failure(
+        NotificationFailure('Failed to schedule goal reminders: $e'),
+      );
     }
   }
 
@@ -103,7 +147,9 @@ class NotificationRepositoryImpl implements NotificationRepository {
       await localDataSource.cancelNotification(id);
       return const Result.success(null);
     } catch (e) {
-      return Result.failure(NotificationFailure('Failed to cancel reminder: $e'));
+      return Result.failure(
+        NotificationFailure('Failed to cancel reminder: $e'),
+      );
     }
   }
 
@@ -113,7 +159,9 @@ class NotificationRepositoryImpl implements NotificationRepository {
       await localDataSource.cancelGoalReminders(goalId);
       return const Result.success(null);
     } catch (e) {
-      return Result.failure(NotificationFailure('Failed to cancel goal reminders: $e'));
+      return Result.failure(
+        NotificationFailure('Failed to cancel goal reminders: $e'),
+      );
     }
   }
 }
