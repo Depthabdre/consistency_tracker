@@ -1,14 +1,14 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_card.dart';
 import '../../data/models/calendar_day_model.dart';
+import '../../domain/streak_calculator.dart';
 
+/// Month calendar. Cells shrink to fit a bounded height so the whole month
+/// is visible without scrolling.
 class CalendarGridWidget extends StatelessWidget {
-  final DateTime currentMonth;
-  final DateTime goalStartDate;
-  final int targetMinutes;
-  final List<CalendarDayModel> entries;
-  final Function(CalendarDayModel day) onDayTap;
-
   const CalendarGridWidget({
     super.key,
     required this.currentMonth,
@@ -16,222 +16,218 @@ class CalendarGridWidget extends StatelessWidget {
     required this.targetMinutes,
     required this.entries,
     required this.onDayTap,
+    this.accent = AppColors.primary,
+    this.maxCellHeight = 52,
+    this.activeWeekdays = const [1, 2, 3, 4, 5, 6, 7],
   });
 
-  CalendarDayModel? _findEntryForDay(DateTime date) {
-    for (final entry in entries) {
-      if (entry.date.year == date.year &&
-          entry.date.month == date.month &&
-          entry.date.day == date.day) {
-        return entry;
-      }
-    }
-    return null;
-  }
+  final DateTime currentMonth;
+  final DateTime goalStartDate;
+  final int targetMinutes;
+  final List<CalendarDayModel> entries;
+  final ValueChanged<CalendarDayModel> onDayTap;
+  final Color accent;
+  final double maxCellHeight;
+  final List<int> activeWeekdays;
 
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  bool _isBeforeDay(DateTime a, DateTime b) {
-    final dateA = DateTime(a.year, a.month, a.day);
-    final dateB = DateTime(b.year, b.month, b.day);
-    return dateA.isBefore(dateB);
-  }
+  static const double _gap = 6;
+  static const double _labelHeight = 18;
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final startDateOnly = DateTime(
-      goalStartDate.year,
-      goalStartDate.month,
-      goalStartDate.day,
-    );
-
+    final today = dayOnly(DateTime.now());
+    final start = dayOnly(goalStartDate);
+    final byDay = {for (final e in entries) dayOnly(e.date): e};
+    final first = DateTime(currentMonth.year, currentMonth.month, 1);
     final daysInMonth = DateTime(
       currentMonth.year,
       currentMonth.month + 1,
       0,
     ).day;
+    final leading = first.weekday - 1;
+    final weeks = ((leading + daysInMonth) / 7).ceil();
+    final weekdayLabels = List.generate(
+      7,
+      (i) => DateFormat.E().format(DateTime(2024, 1, 1 + i)),
+    );
 
-    // Collect all valid dates for current month that are ON OR AFTER goalStartDate
-    final List<DateTime> validDates = [];
-    for (int day = 1; day <= daysInMonth; day++) {
-      final date = DateTime(currentMonth.year, currentMonth.month, day);
-      final cellDate = DateTime(date.year, date.month, date.day);
-      if (!cellDate.isBefore(startDateOnly)) {
-        validDates.add(date);
-      }
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = (constraints.maxWidth - _gap * 6) / 7;
+        var cellHeight = math.min(cellWidth, maxCellHeight);
+        if (constraints.hasBoundedHeight) {
+          final fit =
+              (constraints.maxHeight - _labelHeight - 8 - _gap * (weeks - 1)) /
+              weeks;
+          cellHeight = math.min(cellHeight, fit);
+        }
+        cellHeight = cellHeight.clamp(24.0, maxCellHeight);
 
-    if (validDates.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    // First weekday offset for the earliest rendered date in this view
-    final firstRenderedDate = validDates.first;
-    final firstWeekday = firstRenderedDate.weekday;
-    final totalCells = validDates.length + (firstWeekday - 1);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderOutline, width: 1.2),
-      ),
-      child: Column(
-        children: [
-          // Weekday Labels
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _WeekdayLabel('M'),
-              _WeekdayLabel('T'),
-              _WeekdayLabel('W'),
-              _WeekdayLabel('T'),
-              _WeekdayLabel('F'),
-              _WeekdayLabel('S'),
-              _WeekdayLabel('S'),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Days Grid starting strictly from goalStartDate
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: totalCells,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-            ),
-            itemBuilder: (context, index) {
-              if (index < firstWeekday - 1) {
-                return const SizedBox.shrink();
-              }
-
-              final dateIndex = index - (firstWeekday - 1);
-              final date = validDates[dateIndex];
-              final cellDate = DateTime(date.year, date.month, date.day);
-              final dayNumber = date.day;
-
-              final isToday = _isSameDay(cellDate, today);
-              final isPastAfterStart = _isBeforeDay(cellDate, today);
-
-              final entry = _findEntryForDay(date);
-              final focusedMins = entry?.totalMinutesFocused ?? 0;
-              final isCompleted = focusedMins >= targetMinutes;
-              final isMissedPastDay = isPastAfterStart && !isCompleted;
-
-              Color cellBgColor = const Color(0xFF262626);
-              Color cellBorderColor = const Color(0xFF3A3A3A);
-              Widget cellContent;
-
-              if (isCompleted) {
-                // Rule: Green checkmark ONLY when targetMinutes is met
-                cellBgColor = AppTheme.successGreen;
-                cellBorderColor = AppTheme.successGreen;
-                cellContent = const Icon(
-                  Icons.check_rounded,
-                  size: 18,
-                  color: Colors.black,
-                );
-              } else if (isMissedPastDay) {
-                // Rule: Missed past day after goal start date shows X icon
-                cellBgColor = const Color(0xFF3A2024);
-                cellBorderColor = const Color(0xFFF43F5E);
-                cellContent = const Icon(
-                  Icons.close_rounded,
-                  size: 16,
-                  color: Color(0xFFF43F5E),
-                );
-              } else if (isToday) {
-                // Rule: Today cell with cyan progress border
-                cellBgColor = AppTheme.accentCyan.withValues(alpha: 0.15);
-                cellBorderColor = AppTheme.accentCyan;
-                cellContent = Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '$dayNumber',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.accentCyan,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: _labelHeight,
+              child: Row(
+                children: [
+                  for (var i = 0; i < 7; i++) ...[
+                    if (i > 0) const SizedBox(width: _gap),
+                    Expanded(
+                      child: Text(
+                        weekdayLabels[i],
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelSmall,
                       ),
                     ),
-                    if (focusedMins > 0)
-                      Text(
-                        '${focusedMins}m',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: AppTheme.accentCyan,
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (var w = 0; w < weeks; w++) ...[
+              if (w > 0) const SizedBox(height: _gap),
+              SizedBox(
+                height: cellHeight,
+                child: Row(
+                  children: [
+                    for (var d = 0; d < 7; d++) ...[
+                      if (d > 0) const SizedBox(width: _gap),
+                      Expanded(
+                        child: _cell(
+                          w * 7 + d - leading + 1,
+                          daysInMonth,
+                          byDay,
+                          today,
+                          start,
                         ),
                       ),
+                    ],
                   ],
-                );
-              } else {
-                // Rule: Future day after today
-                cellContent = Text(
-                  '$dayNumber',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
-                );
-              }
-
-              return GestureDetector(
-                onTap: () {
-                  final targetDay =
-                      entry ??
-                      CalendarDayModel(
-                        date: date,
-                        totalMinutesFocused: 0,
-                        targetMinutes: targetMinutes,
-                        isCompleted: false,
-                      );
-                  onDayTap(targetDay);
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: cellBgColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: cellBorderColor,
-                      width: isToday ? 1.8 : 1.0,
-                    ),
-                  ),
-                  child: Center(child: cellContent),
                 ),
-              );
-            },
-          ),
-        ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _cell(
+    int dayNumber,
+    int daysInMonth,
+    Map<DateTime, CalendarDayModel> byDay,
+    DateTime today,
+    DateTime start,
+  ) {
+    if (dayNumber < 1 || dayNumber > daysInMonth) {
+      return const SizedBox.shrink();
+    }
+    final date = DateTime(currentMonth.year, currentMonth.month, dayNumber);
+    final entry = byDay[date];
+    return _DayCell(
+      date: date,
+      entry: entry,
+      accent: accent,
+      isToday: date == today,
+      isFuture: date.isAfter(today),
+      isBeforeStart: date.isBefore(start),
+      isRestDay: !activeWeekdays.contains(date.weekday),
+      onTap: () => onDayTap(
+        entry ??
+            CalendarDayModel(
+              date: date,
+              totalMinutesFocused: 0,
+              targetMinutes: targetMinutes,
+              isCompleted: false,
+            ),
       ),
     );
   }
 }
 
-class _WeekdayLabel extends StatelessWidget {
-  final String label;
+class _DayCell extends StatelessWidget {
+  const _DayCell({
+    required this.date,
+    required this.entry,
+    required this.accent,
+    required this.isToday,
+    required this.isFuture,
+    required this.isBeforeStart,
+    required this.onTap,
+    this.isRestDay = false,
+  });
 
-  const _WeekdayLabel(this.label);
+  final DateTime date;
+  final CalendarDayModel? entry;
+  final Color accent;
+  final bool isToday;
+  final bool isFuture;
+  final bool isBeforeStart;
+  final bool isRestDay;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 30,
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textMuted,
+    final completed = entry?.isCompleted ?? false;
+    final minutes = entry?.totalMinutesFocused ?? 0;
+    final missed =
+        !isFuture && !isToday && !isBeforeStart && !completed && !isRestDay;
+    final inactive = isFuture || isBeforeStart || isRestDay;
+
+    final Color fill;
+    final Color textColor;
+    if (completed) {
+      fill = accent;
+      textColor = AppColors.background;
+    } else if (minutes > 0) {
+      fill = accent.withValues(alpha: 0.22);
+      textColor = AppColors.textPrimary;
+    } else if (missed) {
+      fill = AppColors.danger.withValues(alpha: 0.1);
+      textColor = AppColors.danger.withValues(alpha: 0.85);
+    } else if (inactive) {
+      fill = Colors.transparent;
+      textColor = AppColors.textFaint;
+    } else {
+      fill = AppColors.surfaceHigh.withValues(alpha: 0.6);
+      textColor = AppColors.textSecondary;
+    }
+
+    final status = completed
+        ? 'target met'
+        : missed
+        ? 'missed, $minutes minutes'
+        : isRestDay
+        ? 'rest day'
+        : isToday
+        ? 'today, $minutes minutes'
+        : 'upcoming';
+
+    return Pressable(
+      onTap: isBeforeStart ? null : onTap,
+      pressedScale: 0.94,
+      haptic: false,
+      semanticLabel: '${DateFormat.MMMMd().format(date)}, $status',
+      borderRadius: BorderRadius.circular(AppRadii.sm),
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          border: isToday
+              ? Border.all(color: AppColors.textPrimary, width: 1.5)
+              : null,
+        ),
+        child: Text(
+          '${date.day}',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: completed || isToday
+                ? FontWeight.w600
+                : FontWeight.w400,
+            color: textColor,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
       ),
     );

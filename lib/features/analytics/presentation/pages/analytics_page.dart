@@ -1,403 +1,260 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../calendar_heatmap/data/models/calendar_day_model.dart';
-import '../../../calendar_heatmap/data/repositories/calendar_repository.dart';
+import '../../../../core/utils/color_utils.dart';
+import '../../../../core/utils/time_formatter.dart';
+import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/common_widgets.dart';
 import '../../../goals/data/models/goal_model.dart';
 import '../../../goals/presentation/bloc/goal_bloc.dart';
+import '../../../goals/presentation/bloc/goal_event.dart';
 import '../../../goals/presentation/bloc/goal_state.dart';
+import '../../domain/insights_calculator.dart';
 import '../widgets/weekly_focus_chart.dart';
 
-class AnalyticsPage extends StatefulWidget {
-  const AnalyticsPage({super.key});
+/// Derives everything from [GoalBloc], so it is always in sync with sessions.
+class AnalyticsPage extends StatelessWidget {
+  const AnalyticsPage({super.key, this.onOpenGoal});
 
-  @override
-  State<AnalyticsPage> createState() => _AnalyticsPageState();
-}
-
-class _AnalyticsPageState extends State<AnalyticsPage> {
-  bool _isLoading = true;
-  int _totalAllTimeMinutes = 0;
-  int _totalCompletedDays = 0;
-  int _bestStreak = 0;
-  int _consistencyScore = 0; // percentage
-  Map<int, int> _weekdayMinutes = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0};
-  Map<String, int> _weeklyMinutesByGoal = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAnalytics();
-  }
-
-  Future<void> _loadAnalytics() async {
-    setState(() => _isLoading = true);
-
-    final goalState = context.read<GoalBloc>().state;
-    final calendarRepo = context.read<CalendarRepository>();
-
-    List<GoalModel> goals = [];
-    if (goalState is GoalLoadedState) {
-      goals = goalState.goals;
-    }
-
-    if (goals.isEmpty) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-      return;
-    }
-
-    int allTimeMins = 0;
-    int completedDaysCount = 0;
-    int maxStreakFound = 0;
-    final weekdayMap = <int, int>{1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0};
-    final goalMinsMap = <String, int>{};
-
-    final now = DateTime.now();
-    // Start of this week (Monday)
-    final mondayOfThisWeek = now.subtract(Duration(days: now.weekday - 1));
-    final weekStart = DateTime(
-      mondayOfThisWeek.year,
-      mondayOfThisWeek.month,
-      mondayOfThisWeek.day,
-    );
-    final weekEnd = weekStart.add(const Duration(days: 7));
-
-    // Past 30 days for consistency score
-    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-    int past30DaysTotal = 0;
-    int past30DaysMet = 0;
-
-    for (final goal in goals) {
-      final entriesResult = await calendarRepo.getCalendarEntries(goal.id);
-      entriesResult.fold(
-        onSuccess: (entries) {
-          int goalThisWeekMins = 0;
-
-          // Streak calculation for this goal
-          final sorted = List<CalendarDayModel>.from(entries)
-            ..sort((a, b) => b.date.compareTo(a.date));
-          int streak = 0;
-          for (final entry in sorted) {
-            if (entry.isCompleted) {
-              streak++;
-            } else {
-              final isToday =
-                  entry.date.year == now.year &&
-                  entry.date.month == now.month &&
-                  entry.date.day == now.day;
-              if (!isToday) break;
-            }
-          }
-          if (streak > maxStreakFound) maxStreakFound = streak;
-
-          for (final entry in entries) {
-            allTimeMins += entry.totalMinutesFocused;
-            if (entry.isCompleted) completedDaysCount++;
-
-            // Weekly distribution
-            if (!entry.date.isBefore(weekStart) &&
-                entry.date.isBefore(weekEnd)) {
-              final wd = entry.date.weekday;
-              weekdayMap[wd] =
-                  (weekdayMap[wd] ?? 0) + entry.totalMinutesFocused;
-              goalThisWeekMins += entry.totalMinutesFocused;
-            }
-
-            // 30 day consistency check
-            if (!entry.date.isBefore(thirtyDaysAgo) &&
-                !entry.date.isAfter(now)) {
-              past30DaysTotal++;
-              if (entry.isCompleted) past30DaysMet++;
-            }
-          }
-
-          goalMinsMap[goal.id] = goalThisWeekMins;
-        },
-        onFailure: (_) {},
-      );
-    }
-
-    final score = past30DaysTotal > 0
-        ? ((past30DaysMet / past30DaysTotal) * 100).round()
-        : (completedDaysCount > 0 ? 100 : 0);
-
-    if (mounted) {
-      setState(() {
-        _totalAllTimeMinutes = allTimeMins;
-        _totalCompletedDays = completedDaysCount;
-        _bestStreak = maxStreakFound;
-        _consistencyScore = score;
-        _weekdayMinutes = weekdayMap;
-        _weeklyMinutesByGoal = goalMinsMap;
-        _isLoading = false;
-      });
-    }
-  }
+  final ValueChanged<GoalModel>? onOpenGoal;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundStart,
-      appBar: AppBar(
-        title: const Text('Consistency Analytics'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppTheme.textPrimary),
-            onPressed: _loadAnalytics,
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final double maxWidth = constraints.maxWidth < 600 ? 460 : 700;
-              return Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: _isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.accentCyan,
-                          ),
-                        )
-                      : BlocBuilder<GoalBloc, GoalState>(
-                          builder: (context, goalState) {
-                            final goals = goalState is GoalLoadedState
-                                ? goalState.goals
-                                : <GoalModel>[];
-
-                            if (goals.isEmpty) {
-                              return Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(32),
-                                  margin: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.surfaceCard,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: AppTheme.borderOutline,
-                                    ),
-                                  ),
-                                  child: const Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.auto_graph_rounded,
-                                        size: 48,
-                                        color: AppTheme.accentCyan,
-                                      ),
-                                      SizedBox(height: 14),
-                                      Text(
-                                        'No Analytics Yet',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        'Create target goals and complete focus sessions to see your progress insights here.',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondary,
-                                          fontSize: 13.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }
-
-                            final hours = _totalAllTimeMinutes ~/ 60;
-                            final mins = _totalAllTimeMinutes % 60;
-                            final totalHoursStr = hours > 0
-                                ? '${hours}h ${mins}m'
-                                : '${mins}m';
-
-                            return SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Metric Summary Cards
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildMetricCard(
-                                          title: 'Total Focus',
-                                          value: totalHoursStr,
-                                          subtitle: 'All-time verified',
-                                          icon: Icons.schedule_rounded,
-                                          color: AppTheme.accentCyan,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _buildMetricCard(
-                                          title: 'Best Streak',
-                                          value: '$_bestStreak days',
-                                          subtitle: 'Consecutive targets',
-                                          icon: Icons.whatshot_rounded,
-                                          color: AppTheme.warningOrange,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildMetricCard(
-                                          title: 'Targets Met',
-                                          value: '$_totalCompletedDays',
-                                          subtitle: 'Days completed',
-                                          icon: Icons.task_alt_rounded,
-                                          color: AppTheme.successGreen,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _buildMetricCard(
-                                          title: 'Consistency',
-                                          value: '$_consistencyScore%',
-                                          subtitle: 'Last 30 days',
-                                          icon: Icons.donut_large_rounded,
-                                          color: AppTheme.accentIndigo,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
-
-                                  // Weekly Chart
-                                  WeeklyFocusChart(
-                                    weekdayMinutes: _weekdayMinutes,
-                                  ),
-                                  const SizedBox(height: 20),
-
-                                  // Goal Breakdown Header
-                                  const Text(
-                                    'This Week by Goal',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  ...goals.map((g) {
-                                    final thisWeekMins =
-                                        _weeklyMinutesByGoal[g.id] ?? 0;
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 10),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.surfaceCard,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: AppTheme.borderOutline,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              g.title,
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            '${thisWeekMins}m this week',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppTheme.accentCyan,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              );
-            },
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      body: BlocBuilder<GoalBloc, GoalState>(
+        buildWhen: (prev, curr) =>
+            !(curr is GoalLoadingState && prev is GoalLoadedState),
+        builder: (context, state) {
+          if (state is GoalLoadingState) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final loaded = state is GoalLoadedState
+              ? state
+              : const GoalLoadedState([]);
+          return _InsightsView(
+            goals: loaded.goals,
+            data: InsightsData.compute(
+              goals: loaded.goals,
+              entriesByGoalId: loaded.entriesByGoalId,
+            ),
+            onOpenGoal: onOpenGoal,
+          );
+        },
       ),
     );
   }
+}
 
-  Widget _buildMetricCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderOutline, width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textMuted,
+class _InsightsView extends StatelessWidget {
+  const _InsightsView({
+    required this.goals,
+    required this.data,
+    required this.onOpenGoal,
+  });
+
+  final List<GoalModel> goals;
+  final InsightsData data;
+  final ValueChanged<GoalModel>? onOpenGoal;
+
+  String _days(int n) => '$n ${n == 1 ? 'day' : 'days'}';
+
+  @override
+  Widget build(BuildContext context) {
+    final dailyTarget = goals.fold<int>(0, (s, g) => s + g.targetMinutes);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gutter = math.max(20.0, (constraints.maxWidth - 960) / 2);
+        final bottom = MediaQuery.paddingOf(context).bottom + 24;
+        final twoColumn = constraints.maxWidth >= 900;
+
+        final weekly = WeeklyFocusChart(
+          weekdayMinutes: data.weekdayMinutes,
+          dailyTarget: dailyTarget,
+        );
+        final heatmap = ActivityHeatmap(dailyRatio: data.dailyRatio);
+
+        return RefreshIndicator(
+          color: AppColors.primary,
+          backgroundColor: AppColors.surfaceRaised,
+          onRefresh: () async {
+            final bloc = context.read<GoalBloc>()..add(const LoadGoalsEvent());
+            await bloc.stream.firstWhere(
+              (s) => s is GoalLoadedState || s is GoalErrorState,
+            );
+          },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverSafeArea(
+                bottom: false,
+                sliver: SliverPadding(
+                  padding: EdgeInsets.fromLTRB(gutter, 20, gutter, 20),
+                  sliver: const SliverToBoxAdapter(
+                    child: PageHeader(
+                      title: 'Insights',
+                      subtitle: 'Your consistency across all goals',
+                    ),
+                  ),
                 ),
               ),
-              Icon(icon, size: 18, color: color),
+              if (goals.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(gutter, 0, gutter, bottom),
+                    child: const Center(
+                      child: EmptyState(
+                        icon: Icons.bar_chart_rounded,
+                        title: 'No insights yet',
+                        message:
+                            'Create a goal and finish a focus session. Streaks, trends and your completion rate will show up here.',
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(gutter, 0, gutter, bottom),
+                  sliver: SliverList.list(
+                    children: [
+                      StatRow(
+                        stats: [
+                          StatBlock(
+                            value: '${(data.consistency * 100).round()}%',
+                            label: 'Completion · 30 days',
+                          ),
+                          StatBlock(
+                            value: _days(data.activeStreak),
+                            label: 'Current streak',
+                          ),
+                          StatBlock(
+                            value: _days(data.longestStreak),
+                            label: 'Longest streak',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      StatRow(
+                        stats: [
+                          StatBlock(
+                            value: formatMinutes(data.totalMinutes),
+                            label: 'Total focus',
+                          ),
+                          StatBlock(
+                            value: formatMinutes(data.dailyAverage),
+                            label: 'Daily average · 7 days',
+                          ),
+                          StatBlock(
+                            value: '${data.perfectDays}',
+                            label: 'Perfect days · 30 days',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (twoColumn)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: weekly),
+                            const SizedBox(width: 16),
+                            Expanded(child: heatmap),
+                          ],
+                        )
+                      else ...[
+                        weekly,
+                        const SizedBox(height: 16),
+                        heatmap,
+                      ],
+                      const SizedBox(height: 24),
+                      const SectionLabel('This week by goal'),
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < data.goals.length; i++) ...[
+                              if (i > 0) const Divider(),
+                              _GoalWeekRow(
+                                insight: data.goals[i],
+                                onTap: onOpenGoal == null
+                                    ? null
+                                    : () => onOpenGoal!(data.goals[i].goal),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+        );
+      },
+    );
+  }
+}
+
+class _GoalWeekRow extends StatelessWidget {
+  const _GoalWeekRow({required this.insight, this.onTap});
+
+  final GoalInsight insight;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    final accent = colorFromHex(insight.goal.colorHex);
+    final ratio = insight.weeklyTarget == 0
+        ? 0.0
+        : insight.weekMinutes / insight.weeklyTarget;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    insight.goal.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.titleSmall,
+                  ),
+                ),
+                Text(
+                  '${formatMinutes(insight.weekMinutes)} of ${formatMinutes(insight.weeklyTarget)}',
+                  style: theme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
-          ),
-        ],
+            const SizedBox(height: 10),
+            ProgressBar(value: ratio, color: accent),
+            const SizedBox(height: 8),
+            Text(
+              'Current streak ${insight.currentStreak} · best ${insight.longestStreak} · ${insight.completedDays} days completed',
+              style: theme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

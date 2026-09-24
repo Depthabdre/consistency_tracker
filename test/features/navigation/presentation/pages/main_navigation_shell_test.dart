@@ -84,18 +84,18 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify initial tab is Targets
-    expect(find.text('Targets'), findsOneWidget);
-    expect(find.text('Analytics'), findsOneWidget);
+    // Verify initial tab is Today
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Insights'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
-    // Tap Analytics
-    await tester.tap(find.text('Analytics'));
+    // Tap Insights
+    await tester.tap(find.text('Insights'));
     await tester.pumpAndSettle();
-    expect(find.text('Consistency Analytics'), findsOneWidget);
+    expect(find.text('Your consistency across all goals'), findsOneWidget);
 
     // Tap Settings
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.text('Settings').last);
     await tester.pumpAndSettle();
     expect(find.text('Session setup'), findsOneWidget);
   });

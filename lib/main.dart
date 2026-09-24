@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/theme/app_theme.dart';
@@ -28,13 +30,27 @@ import 'features/notifications/data/repositories/notification_repository.dart';
 // Settings Feature
 import 'features/settings/data/datasources/settings_local_datasource.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
+import 'features/settings/domain/entities/app_settings.dart';
 import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_event.dart';
 
 import 'core/services/email_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/secret_store.dart';
+import 'features/focus_timer/data/datasources/active_session_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   // Initialize Hive Offline Database
   await Hive.initFlutter();
@@ -47,6 +63,7 @@ void main() async {
   final notificationLocalDataSource = NotificationLocalDataSourceImpl();
   final settingsLocalDataSource = SettingsLocalDataSourceImpl(
     settingsBox: settingsBox,
+    secrets: SecureSecretStore(),
   );
 
   // Initialize Local Notifications
@@ -64,6 +81,17 @@ void main() async {
   );
   final notificationRepository = NotificationRepositoryImpl(
     localDataSource: notificationLocalDataSource,
+    escalationEnabled: () {
+      final raw = settingsBox.get(SettingsLocalDataSourceImpl.key);
+      if (raw is! String) return true;
+      try {
+        return AppSettings.fromJson(
+          Map<String, dynamic>.from(jsonDecode(raw) as Map),
+        ).escalationRemindersEnabled;
+      } catch (_) {
+        return true;
+      }
+    },
   );
   final settingsRepository = SettingsRepositoryImpl(
     localDataSource: settingsLocalDataSource,
@@ -78,6 +106,7 @@ void main() async {
       notificationRepository: notificationRepository,
       settingsRepository: settingsRepository,
       emailService: emailService,
+      activeSessionStore: HiveActiveSessionStore(),
     ),
   );
 }
@@ -89,6 +118,7 @@ class ConsistencyTrackerApp extends StatelessWidget {
   final NotificationRepository notificationRepository;
   final SettingsRepository settingsRepository;
   final EmailService? emailService;
+  final ActiveSessionStore? activeSessionStore;
 
   const ConsistencyTrackerApp({
     super.key,
@@ -98,6 +128,7 @@ class ConsistencyTrackerApp extends StatelessWidget {
     required this.notificationRepository,
     required this.settingsRepository,
     this.emailService,
+    this.activeSessionStore,
   });
 
   @override
@@ -126,8 +157,13 @@ class ConsistencyTrackerApp extends StatelessWidget {
             )..add(const LoadGoalsEvent()),
           ),
           BlocProvider<FocusTimerBloc>(
-            create: (context) =>
-                FocusTimerBloc(sessionRepository: focusSessionRepository),
+            create: (context) => FocusTimerBloc(
+              sessionRepository: focusSessionRepository,
+              notificationService: NotificationServiceImpl(
+                notificationRepository: notificationRepository,
+              ),
+              activeSessionStore: activeSessionStore,
+            ),
           ),
           BlocProvider<CalendarBloc>(
             create: (context) =>
@@ -140,7 +176,7 @@ class ConsistencyTrackerApp extends StatelessWidget {
           ),
         ],
         child: MaterialApp(
-          title: 'Consistency Tracker',
+          title: 'Consistency',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.darkTheme,
           home: const MainNavigationShell(),

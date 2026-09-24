@@ -1,66 +1,52 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/common_widgets.dart';
 
+/// Goal statistics: a 2×2 grid, or a single row when [inline].
 class StreakCounterWidget extends StatelessWidget {
-  final int currentStreak;
-  final int totalDaysCompleted;
-
   const StreakCounterWidget({
     super.key,
     required this.currentStreak,
-    required this.totalDaysCompleted,
+    required this.bestStreak,
+    required this.completionRate,
+    required this.totalFocus,
+    this.inline = false,
   });
+
+  final int currentStreak;
+  final int bestStreak;
+  final String completionRate;
+  final String totalFocus;
+  final bool inline;
+
+  String _days(int n) => '$n ${n == 1 ? 'day' : 'days'}';
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderOutline, width: 1.2),
-      ),
+    final stats = [
+      StatBlock(value: _days(currentStreak), label: 'Current streak'),
+      StatBlock(value: _days(bestStreak), label: 'Best streak'),
+      StatBlock(value: completionRate, label: 'Last 30 days'),
+      StatBlock(value: totalFocus, label: 'Total focus'),
+    ];
+
+    if (inline) return StatRow(stats: stats);
+
+    Widget cell(StatBlock s) => Expanded(
+      child: Padding(padding: const EdgeInsets.all(14), child: s),
+    );
+    Widget pair(int i) => IntrinsicHeight(
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF8E53).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFF8E53).withValues(alpha: 0.3)),
-            ),
-            child: const Icon(
-              Icons.whatshot_rounded,
-              size: 28,
-              color: Color(0xFFFF8E53),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$currentStreak Day Streak',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$totalDaysCompleted target days completed',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          cell(stats[i]),
+          const VerticalDivider(width: 1),
+          cell(stats[i + 1]),
         ],
       ),
+    );
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(children: [pair(0), const Divider(), pair(2)]),
     );
   }
 }
