@@ -14,6 +14,11 @@ class GoalModel extends Equatable {
   final DateTime createdAt;
   final bool isActive;
 
+  /// Days the goal is scheduled (1 = Monday … 7 = Sunday). Others are rest days.
+  final List<int> activeWeekdays;
+
+  static const List<int> everyDay = [1, 2, 3, 4, 5, 6, 7];
+
   const GoalModel({
     required this.id,
     required this.title,
@@ -26,7 +31,42 @@ class GoalModel extends Equatable {
     required this.colorHex,
     required this.createdAt,
     this.isActive = true,
+    this.activeWeekdays = everyDay,
   });
+
+  bool isActiveOn(DateTime day) => activeWeekdays.contains(day.weekday);
+
+  /// Scheduled on [day]: on or after creation and not a rest day.
+  bool isScheduledOn(DateTime day) {
+    final created = DateTime(createdAt.year, createdAt.month, createdAt.day);
+    return !created.isAfter(DateTime(day.year, day.month, day.day)) &&
+        isActiveOn(day);
+  }
+
+  bool get hasRestDays => activeWeekdays.length < 7;
+
+  String get scheduleLabel {
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    if (!hasRestDays) return 'Every day';
+    final days = activeWeekdays.toSet();
+    if (days.length == 5 && days.containsAll([1, 2, 3, 4, 5])) {
+      return 'Weekdays';
+    }
+    if (days.length == 2 && days.containsAll([6, 7])) return 'Weekends';
+    return activeWeekdays.map((d) => names[d - 1]).join(', ');
+  }
+
+  static List<int> _parseWeekdays(dynamic raw) {
+    if (raw is! List) return everyDay;
+    final days =
+        raw
+            .map((e) => _parseInt(e, 0))
+            .where((d) => d >= 1 && d <= 7)
+            .toSet()
+            .toList()
+          ..sort();
+    return days.isEmpty ? everyDay : days;
+  }
 
   List<ReminderTimeModel> get activeReminderTimes {
     if (reminderTimes.isNotEmpty) {
@@ -50,6 +90,7 @@ class GoalModel extends Equatable {
       'colorHex': colorHex,
       'createdAt': createdAt.toIso8601String(),
       'isActive': isActive,
+      'activeWeekdays': activeWeekdays,
     };
   }
 
@@ -91,6 +132,7 @@ class GoalModel extends Equatable {
           ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
+      activeWeekdays: _parseWeekdays(json['activeWeekdays']),
     );
   }
 
@@ -106,6 +148,7 @@ class GoalModel extends Equatable {
     String? colorHex,
     DateTime? createdAt,
     bool? isActive,
+    List<int>? activeWeekdays,
   }) {
     return GoalModel(
       id: id ?? this.id,
@@ -119,6 +162,7 @@ class GoalModel extends Equatable {
       colorHex: colorHex ?? this.colorHex,
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
+      activeWeekdays: activeWeekdays ?? this.activeWeekdays,
     );
   }
 
@@ -135,5 +179,6 @@ class GoalModel extends Equatable {
     colorHex,
     createdAt,
     isActive,
+    activeWeekdays,
   ];
 }

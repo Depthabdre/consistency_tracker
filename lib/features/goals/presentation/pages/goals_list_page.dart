@@ -1,16 +1,26 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/time_formatter.dart';
+import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/common_widgets.dart';
+import '../../../calendar_heatmap/domain/streak_calculator.dart';
+import '../../../focus_timer/presentation/bloc/focus_timer_bloc.dart';
+import '../../../focus_timer/presentation/bloc/focus_timer_state.dart';
 import '../../data/models/goal_model.dart';
 import '../bloc/goal_bloc.dart';
 import '../bloc/goal_event.dart';
 import '../bloc/goal_state.dart';
+import '../goal_actions.dart';
 import '../reusable_widgets/goal_card_widget.dart';
-import 'add_edit_goal_page.dart';
+
+enum _GoalFilter { all, todo, done }
 
 class GoalsListPage extends StatefulWidget {
-  final Function(GoalModel goal) onStartFocus;
-  final Function(GoalModel goal) onViewCalendar;
+  final void Function(GoalModel goal) onStartFocus;
+  final void Function(GoalModel goal) onViewCalendar;
 
   const GoalsListPage({
     super.key,
@@ -23,636 +33,404 @@ class GoalsListPage extends StatefulWidget {
 }
 
 class _GoalsListPageState extends State<GoalsListPage> {
-  String _selectedFilter = 'all'; // 'all', 'in_progress', 'completed'
+  _GoalFilter _filter = _GoalFilter.all;
 
-  int _getTodayMinutes(GoalLoadedState goalState, String goalId) {
-    return goalState.todayMinutesByGoalId[goalId] ?? 0;
+  Future<void> _refresh() async {
+    final bloc = context.read<GoalBloc>()..add(const LoadGoalsEvent());
+    await bloc.stream.firstWhere(
+      (s) => s is GoalLoadedState || s is GoalErrorState,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundStart,
-      appBar: AppBar(title: const Text('Consistency Targets')),
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final double maxWidth = constraints.maxWidth < 600 ? 460 : 700;
-              return Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    child: BlocBuilder<GoalBloc, GoalState>(
-                      builder: (context, state) {
-                        if (state is GoalLoadingState) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: AppTheme.accentCyan,
-                            ),
-                          );
-                        }
+      backgroundColor: Colors.transparent,
+      body: BlocBuilder<GoalBloc, GoalState>(
+        // Keep showing current data during background reloads (no flicker).
+        buildWhen: (prev, curr) =>
+            !(curr is GoalLoadingState && prev is GoalLoadedState),
+        builder: (context, state) {
+          if (state is GoalErrorState) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: EmptyState(
+                  icon: Icons.error_outline_rounded,
+                  title: 'Couldn’t load your goals',
+                  message: state.message,
+                  action: OutlinedButton(
+                    onPressed: () =>
+                        context.read<GoalBloc>().add(const LoadGoalsEvent()),
+                    child: const Text('Try again'),
+                  ),
+                ),
+              ),
+            );
+          }
+          if (state is GoalLoadingState) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (state is! GoalLoadedState) return const SizedBox.shrink();
+          return _buildLoaded(context, state);
+        },
+      ),
+    );
+  }
 
-                        if (state is GoalErrorState) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline_rounded,
-                                  size: 48,
-                                  color: Color(0xFFF43F5E),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  state.message,
-                                  style: const TextStyle(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: () => context.read<GoalBloc>().add(
-                                    const LoadGoalsEvent(),
-                                  ),
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
+  Widget _buildLoaded(BuildContext context, GoalLoadedState state) {
+    final goals = state.goals;
+    final doneGoals = goals
+        .where((g) => state.todayMinutesFor(g.id) >= g.targetMinutes)
+        .toList();
+    final now = DateTime.now();
+    final todoGoals = goals
+        .where((g) => !doneGoals.contains(g) && g.isActiveOn(now))
+        .toList();
+    final visible = switch (_filter) {
+      _GoalFilter.all => goals,
+      _GoalFilter.todo => todoGoals,
+      _GoalFilter.done => doneGoals,
+    };
+    final timerState = context.watch<FocusTimerBloc>().state;
+    final liveGoalId = switch (timerState) {
+      FocusTimerRunningState s => s.goalId,
+      FocusTimerPausedState s => s.goalId,
+      _ => null,
+    };
 
-                        if (state is GoalLoadedState) {
-                          final allGoals = state.goals;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gutter = math.max(20.0, (constraints.maxWidth - 720) / 2);
+        final bottom = MediaQuery.paddingOf(context).bottom + 24;
+        final compact = constraints.maxWidth < 480;
 
-                          if (allGoals.isEmpty) {
-                            return Center(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: AppTheme.surfaceCard,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: AppTheme.borderOutline,
-                                    width: 1.2,
-                                  ),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 40,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Ready, set, focus!',
-                                      textAlign: TextAlign.center,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                            fontSize: 22,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 14),
-                                    const Text(
-                                      'Achieve your daily goals with consistency sessions.\n'
-                                      'Set your daily target minutes and build long-term momentum.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: AppTheme.textSecondary,
-                                        fontSize: 14,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 28),
-                                    SizedBox(
-                                      height: 42,
-                                      child: FilledButton.icon(
-                                        onPressed: () =>
-                                            _openAddGoalModal(context),
-                                        icon: const Icon(
-                                          Icons.add_rounded,
-                                          size: 20,
-                                          color: Colors.black,
-                                        ),
-                                        label: const Text(
-                                          'Create First Target Goal',
-                                        ),
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: AppTheme.accentCyan,
-                                          foregroundColor: Colors.black,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 24,
-                                          ),
-                                          textStyle: const TextStyle(
-                                            fontSize: 14.5,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          color: AppColors.primary,
+          backgroundColor: AppColors.surfaceRaised,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverSafeArea(
+                bottom: false,
+                sliver: SliverPadding(
+                  padding: EdgeInsets.fromLTRB(gutter, 20, gutter, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: PageHeader(
+                      title: 'Today',
+                      subtitle: DateFormat(
+                        'EEEE, MMMM d',
+                      ).format(DateTime.now()),
+                      actions: [
+                        if (compact)
+                          AppIconButton(
+                            icon: Icons.add_rounded,
+                            tooltip: 'New goal',
+                            filled: true,
+                            onTap: () => openGoalEditor(context),
+                          )
+                        else
+                          FilledButton.icon(
+                            onPressed: () => openGoalEditor(context),
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('New goal'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 40),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
                               ),
-                            );
-                          }
-
-                          // Calculate Momentum Metrics
-                          int totalFocusedToday = 0;
-                          int totalTargetMinutes = 0;
-                          int completedCount = 0;
-
-                          for (final goal in allGoals) {
-                            final mins = _getTodayMinutes(state, goal.id);
-                            totalFocusedToday += mins;
-                            totalTargetMinutes += goal.targetMinutes;
-                            if (mins >= goal.targetMinutes) {
-                              completedCount++;
-                            }
-                          }
-
-                          // Filter goals
-                          final filteredGoals = allGoals.where((goal) {
-                            final mins = _getTodayMinutes(state, goal.id);
-                            final isMet = mins >= goal.targetMinutes;
-                            if (_selectedFilter == 'completed') return isMet;
-                            if (_selectedFilter == 'in_progress') return !isMet;
-                            return true;
-                          }).toList();
-
-                          return SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Today's Momentum Banner
-                                Container(
-                                  padding: const EdgeInsets.all(18),
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.surfaceCard,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color:
-                                          completedCount == allGoals.length &&
-                                              allGoals.isNotEmpty
-                                          ? AppTheme.successGreen
-                                          : AppTheme.borderOutline,
-                                      width: 1.2,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(5),
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.accentCyan
-                                                      .withValues(alpha: 0.15),
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                  border: Border.all(
-                                                    color: AppTheme.accentCyan
-                                                        .withValues(alpha: 0.3),
-                                                    width: 1,
-                                                  ),
-                                                ),
-                                                child: const Icon(
-                                                  Icons.bolt_rounded,
-                                                  color: AppTheme.accentCyan,
-                                                  size: 14,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Text(
-                                                'Today\'s Momentum',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  completedCount ==
-                                                      allGoals.length
-                                                  ? AppTheme.successGreen
-                                                        .withValues(alpha: 0.15)
-                                                  : AppTheme.accentCyan
-                                                        .withValues(
-                                                          alpha: 0.15,
-                                                        ),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              '$completedCount / ${allGoals.length} Done',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color:
-                                                    completedCount ==
-                                                        allGoals.length
-                                                    ? AppTheme.successGreen
-                                                    : AppTheme.accentCyan,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            '$totalFocusedToday',
-                                            style: const TextStyle(
-                                              fontSize: 26,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          Text(
-                                            ' / $totalTargetMinutes mins committed',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color: AppTheme.textMuted,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: totalTargetMinutes > 0
-                                              ? (totalFocusedToday /
-                                                        totalTargetMinutes)
-                                                    .clamp(0.0, 1.0)
-                                              : 0.0,
-                                          minHeight: 6,
-                                          backgroundColor: const Color(
-                                            0xFF262626,
-                                          ),
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                completedCount ==
-                                                            allGoals.length &&
-                                                        allGoals.isNotEmpty
-                                                    ? AppTheme.successGreen
-                                                    : AppTheme.accentCyan,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Filter chips & New Goal button
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Wrap(
-                                      spacing: 8,
-                                      children: [
-                                        _buildFilterChip(
-                                          'All',
-                                          'all',
-                                          Icons.grid_view_rounded,
-                                        ),
-                                        _buildFilterChip(
-                                          'In Progress',
-                                          'in_progress',
-                                          Icons.timelapse_rounded,
-                                        ),
-                                        _buildFilterChip(
-                                          'Completed',
-                                          'completed',
-                                          Icons.check_circle_outline_rounded,
-                                        ),
-                                      ],
-                                    ),
-                                    TextButton.icon(
-                                      onPressed: () =>
-                                          _openAddGoalModal(context),
-                                      icon: const Icon(
-                                        Icons.add_rounded,
-                                        size: 16,
-                                        color: AppTheme.accentCyan,
-                                      ),
-                                      label: const Text(
-                                        'New Goal',
-                                        style: TextStyle(
-                                          color: AppTheme.accentCyan,
-                                          fontSize: 13.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 14),
-
-                                if (filteredGoals.isEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.all(24),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.surfaceCard,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: AppTheme.borderOutline,
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'No goals in this category.',
-                                        style: TextStyle(
-                                          color: AppTheme.textMuted,
-                                          fontSize: 13.5,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  ...filteredGoals.map((goal) {
-                                    final todayMins = _getTodayMinutes(
-                                      state,
-                                      goal.id,
-                                    );
-                                    return GoalCardWidget(
-                                      goal: goal,
-                                      todayFocusedMinutes: todayMins,
-                                      onStartFocus: () =>
-                                          widget.onStartFocus(goal),
-                                      onViewCalendar: () =>
-                                          widget.onViewCalendar(goal),
-                                      onEdit: () =>
-                                          _openEditGoalModal(context, goal),
-                                      onDelete: () {
-                                        _showGitHubStyleDeleteDialog(
-                                          context,
-                                          goal,
-                                        );
-                                      },
-                                    );
-                                  }),
-                              ],
                             ),
-                          );
-                        }
-
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value, IconData icon) {
-    final isSelected = _selectedFilter == value;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFilter = value;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.accentCyan.withValues(alpha: 0.18)
-              : AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isSelected ? AppTheme.accentCyan : AppTheme.borderOutline,
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 13,
-              color: isSelected ? AppTheme.accentCyan : AppTheme.textMuted,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppTheme.accentCyan : AppTheme.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _openAddGoalModal(BuildContext context) async {
-    final newGoal = await showModalBottomSheet<GoalModel>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const AddEditGoalModal(),
-    );
-
-    if (newGoal != null && context.mounted) {
-      context.read<GoalBloc>().add(AddGoalEvent(newGoal));
-    }
-  }
-
-  void _openEditGoalModal(BuildContext context, GoalModel goal) async {
-    final updatedGoal = await showModalBottomSheet<GoalModel>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => AddEditGoalModal(goal: goal),
-    );
-
-    if (updatedGoal != null && context.mounted) {
-      context.read<GoalBloc>().add(UpdateGoalEvent(updatedGoal));
-    }
-  }
-
-  void _showGitHubStyleDeleteDialog(BuildContext context, GoalModel goal) {
-    final textController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final bool isMatch =
-                textController.text.trim() == goal.title.trim();
-
-            return AlertDialog(
-              backgroundColor: AppTheme.surfaceCard,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(
-                  color: AppTheme.borderOutline,
-                  width: 1.2,
-                ),
-              ),
-              title: Row(
-                children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Color(0xFFF43F5E),
-                    size: 24,
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Delete Target Goal',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'This action cannot be undone. This will permanently delete the "${goal.title}" target goal and all associated focus history.',
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      color: AppTheme.textSecondary,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMuted,
-                      ),
-                      children: [
-                        const TextSpan(text: 'Please type '),
-                        TextSpan(
-                          text: goal.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
                           ),
-                        ),
-                        const TextSpan(text: ' to confirm:'),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: textController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    onChanged: (_) => setDialogState(() {}),
-                    decoration: InputDecoration(
-                      hintText: goal.title,
-                      hintStyle: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        fontSize: 13,
-                      ),
-                      filled: true,
-                      fillColor: AppTheme.backgroundStart,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(
-                          color: AppTheme.borderOutline,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                          color: isMatch
-                              ? const Color(0xFFF43F5E)
-                              : AppTheme.borderOutline,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textPrimary,
-                    side: const BorderSide(color: Color(0xFF4F4F4F)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
+              if (goals.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(gutter, 24, gutter, bottom),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.flag_outlined,
+                        title: 'No goals yet',
+                        message:
+                            'Pick something you want to do every day and set a daily minimum. Every focus session counts toward it.',
+                        action: SizedBox(
+                          width: 220,
+                          child: PrimaryButton(
+                            label: 'Create a goal',
+                            icon: Icons.add_rounded,
+                            onPressed: () => openGoalEditor(context),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  child: const Text('Cancel'),
+                )
+              else ...[
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(gutter, 20, gutter, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: _TodaySummary(state: state),
+                  ),
                 ),
-                FilledButton(
-                  onPressed: isMatch
-                      ? () {
-                          Navigator.pop(dialogContext);
-                          context.read<GoalBloc>().add(
-                            DeleteGoalEvent(goal.id),
-                          );
-                        }
-                      : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFF43F5E),
-                    disabledBackgroundColor: const Color(
-                      0xFFF43F5E,
-                    ).withValues(alpha: 0.3),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 340),
+                        child: SegmentedPills<_GoalFilter>(
+                          value: _filter,
+                          onChanged: (f) => setState(() => _filter = f),
+                          options: [
+                            (_GoalFilter.all, 'All ${goals.length}'),
+                            (_GoalFilter.todo, 'To do ${todoGoals.length}'),
+                            (_GoalFilter.done, 'Done ${doneGoals.length}'),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  child: const Text('I understand, delete goal'),
                 ),
+                if (visible.isEmpty)
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(gutter, 0, gutter, bottom),
+                    sliver: SliverToBoxAdapter(
+                      child: AppCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          _filter == _GoalFilter.done
+                              ? 'Nothing completed yet today.'
+                              : 'All done for today.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(gutter, 0, gutter, bottom),
+                    sliver: SliverList.separated(
+                      itemCount: visible.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) {
+                        final goal = visible[i];
+                        return GoalCardWidget(
+                          key: ValueKey(goal.id),
+                          goal: goal,
+                          todayFocusedMinutes: state.todayMinutesFor(goal.id),
+                          entries: state.entriesFor(goal.id),
+                          isLive: liveGoalId == goal.id,
+                          onStartFocus: () => widget.onStartFocus(goal),
+                          onOpen: () => widget.onViewCalendar(goal),
+                          onMore: (anchor) => showGoalActions(
+                            context,
+                            goal: goal,
+                            anchor: anchor,
+                            onOpenHistory: () => widget.onViewCalendar(goal),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
               ],
-            );
-          },
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _TodaySummary extends StatelessWidget {
+  const _TodaySummary({required this.state});
+
+  final GoalLoadedState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    final now = DateTime.now();
+    final goals = state.goals
+        .where(
+          (g) =>
+              g.isActiveOn(now) ||
+              state.todayMinutesFor(g.id) >= g.targetMinutes,
+        )
+        .toList();
+
+    var focused = 0;
+    var capped = 0;
+    var target = 0;
+    var done = 0;
+    var bestStreak = 0;
+    for (final g in state.goals) {
+      bestStreak = math.max(
+        bestStreak,
+        calculateCurrentStreak(
+          state.entriesFor(g.id),
+          activeWeekdays: g.activeWeekdays,
+        ),
+      );
+    }
+    for (final g in goals) {
+      final mins = state.todayMinutesFor(g.id);
+      focused += mins;
+      capped += math.min(mins, g.targetMinutes);
+      target += g.targetMinutes;
+      if (mins >= g.targetMinutes) done++;
+    }
+    final progress = target == 0 ? 0.0 : capped / target;
+    final allDone = done == goals.length;
+
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  goals.isEmpty
+                      ? 'Rest day, nothing scheduled'
+                      : allDone
+                      ? 'All targets met today'
+                      : '$done of ${goals.length} done',
+                  style: theme.titleMedium,
+                ),
+              ),
+              Text(
+                '${(progress * 100).round()}%',
+                style: theme.titleSmall?.copyWith(
+                  color: allDone ? AppColors.success : AppColors.textSecondary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ProgressBar(
+            value: progress,
+            height: 6,
+            color: allDone ? AppColors.success : AppColors.primary,
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: StatBlock(
+                  value: formatMinutes(focused),
+                  label: 'Focused',
+                ),
+              ),
+              Expanded(
+                child: StatBlock(
+                  value: formatMinutes(math.max(0, target - capped)),
+                  label: 'Remaining',
+                ),
+              ),
+              Expanded(
+                child: StatBlock(
+                  value: '$bestStreak ${bestStreak == 1 ? 'day' : 'days'}',
+                  label: 'Best streak',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Divider(),
+          const SizedBox(height: 14),
+          _WeekStrip(state: state),
+        ],
+      ),
+    );
+  }
+}
+
+/// Last 7 days; filled when every goal hit its target that day.
+class _WeekStrip extends StatelessWidget {
+  const _WeekStrip({required this.state});
+
+  final GoalLoadedState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = dayOnly(DateTime.now());
+    final theme = Theme.of(context).textTheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(7, (i) {
+        final day = DateTime(today.year, today.month, today.day - (6 - i));
+        final active = state.goals.where((g) => g.isScheduledOn(day)).toList();
+        var completed = 0;
+        for (final g in active) {
+          final hit = i == 6
+              ? state.todayMinutesFor(g.id) >= g.targetMinutes
+              : state
+                    .entriesFor(g.id)
+                    .any((e) => e.isCompleted && isSameDay(e.date, day));
+          if (hit) completed++;
+        }
+        final isToday = i == 6;
+        final perfect = active.isNotEmpty && completed == active.length;
+        final partial = completed > 0 && !perfect;
+
+        return Semantics(
+          label:
+              '${DateFormat('EEEE').format(day)}: $completed of ${active.length} goals done',
+          child: Column(
+            children: [
+              Text(
+                DateFormat('E').format(day),
+                style: theme.labelSmall?.copyWith(
+                  color: isToday ? AppColors.textPrimary : AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: perfect
+                      ? AppColors.primary
+                      : partial
+                      ? AppColors.primary.withValues(alpha: 0.2)
+                      : AppColors.surfaceHigh.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                  border: isToday
+                      ? Border.all(color: AppColors.textSecondary)
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: perfect
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: AppColors.onPrimary,
+                      )
+                    : Text(
+                        '${day.day}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: active.isEmpty
+                              ? AppColors.textFaint
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

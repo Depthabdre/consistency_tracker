@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../calendar_heatmap/data/models/calendar_day_model.dart';
 import '../../data/models/goal_model.dart';
 
 abstract class GoalEvent extends Equatable {
@@ -37,6 +38,17 @@ class DeleteGoalEvent extends GoalEvent {
 
   @override
   List<Object?> get props => [id];
+}
+
+/// Re-creates a deleted goal together with its calendar history (undo).
+class RestoreGoalEvent extends GoalEvent {
+  final GoalModel goal;
+  final List<CalendarDayModel> history;
+
+  const RestoreGoalEvent(this.goal, this.history);
+
+  @override
+  List<Object?> get props => [goal, history];
 }
 
 class UpdateGoalProgressEvent extends GoalEvent {

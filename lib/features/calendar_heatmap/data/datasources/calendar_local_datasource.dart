@@ -9,6 +9,7 @@ abstract class CalendarLocalDataSource {
     required int targetMinutes,
     required int minutesToAdd,
   });
+  Future<bool> clearEntries(String goalId);
 }
 
 class CalendarLocalDataSourceImpl implements CalendarLocalDataSource {
@@ -64,5 +65,11 @@ class CalendarLocalDataSourceImpl implements CalendarLocalDataSource {
 
     await box.put(key, updatedDay.toJson());
     return updatedDay;
+  }
+
+  @override
+  Future<bool> clearEntries(String goalId) async {
+    await Hive.deleteBoxFromDisk('$boxPrefix$goalId');
+    return true;
   }
 }

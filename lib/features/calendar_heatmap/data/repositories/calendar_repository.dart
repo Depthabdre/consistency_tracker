@@ -11,6 +11,7 @@ abstract class CalendarRepository {
     required int targetMinutes,
     required int minutesToAdd,
   });
+  Future<Result<bool>> clearEntries(String goalId);
 }
 
 class CalendarRepositoryImpl implements CalendarRepository {
@@ -60,6 +61,15 @@ class CalendarRepositoryImpl implements CalendarRepository {
       return Result.success(updatedDay);
     } catch (e) {
       return Result.failure(CacheFailure('Failed to add focus minutes: $e'));
+    }
+  }
+
+  @override
+  Future<Result<bool>> clearEntries(String goalId) async {
+    try {
+      return Result.success(await localDataSource.clearEntries(goalId));
+    } catch (e) {
+      return Result.failure(CacheFailure('Failed to clear history: $e'));
     }
   }
 }

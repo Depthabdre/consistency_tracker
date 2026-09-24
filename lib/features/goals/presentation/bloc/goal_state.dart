@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../calendar_heatmap/data/models/calendar_day_model.dart';
 import '../../data/models/goal_model.dart';
 
 abstract class GoalState extends Equatable {
@@ -19,11 +20,21 @@ class GoalLoadingState extends GoalState {
 class GoalLoadedState extends GoalState {
   final List<GoalModel> goals;
   final Map<String, int> todayMinutesByGoalId;
+  final Map<String, List<CalendarDayModel>> entriesByGoalId;
 
-  const GoalLoadedState(this.goals, {this.todayMinutesByGoalId = const {}});
+  const GoalLoadedState(
+    this.goals, {
+    this.todayMinutesByGoalId = const {},
+    this.entriesByGoalId = const {},
+  });
+
+  int todayMinutesFor(String goalId) => todayMinutesByGoalId[goalId] ?? 0;
+
+  List<CalendarDayModel> entriesFor(String goalId) =>
+      entriesByGoalId[goalId] ?? const [];
 
   @override
-  List<Object?> get props => [goals, todayMinutesByGoalId];
+  List<Object?> get props => [goals, todayMinutesByGoalId, entriesByGoalId];
 }
 
 class GoalErrorState extends GoalState {
