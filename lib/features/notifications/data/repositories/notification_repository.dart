@@ -12,19 +12,32 @@ abstract class NotificationRepository {
     required int hour,
     required int minute,
   });
-  Future<Result<void>> scheduleGoalReminders(GoalModel goal);
+
+  /// [skipToday] starts the daily cycle tomorrow (used once today's target is
+  /// met). [includeEscalation] defaults to the user's setting.
+  Future<Result<void>> scheduleGoalReminders(
+    GoalModel goal, {
+    bool skipToday = false,
+    bool? includeEscalation,
+  });
   Future<Result<void>> showImmediateNotification({
     required String title,
     required String body,
   });
   Future<Result<void>> cancelReminder(int id);
   Future<Result<void>> cancelGoalReminders(String goalId);
+  Future<bool> requestPermission();
+  Future<bool?> hasPermission();
 }
 
 class NotificationRepositoryImpl implements NotificationRepository {
   final NotificationLocalDataSource localDataSource;
+  final bool Function()? escalationEnabled;
 
-  NotificationRepositoryImpl({required this.localDataSource});
+  NotificationRepositoryImpl({
+    required this.localDataSource,
+    this.escalationEnabled,
+  });
 
   @override
   Future<Result<void>> initNotifications() async {
@@ -35,6 +48,24 @@ class NotificationRepositoryImpl implements NotificationRepository {
       return Result.failure(
         NotificationFailure('Notification init failed: $e'),
       );
+    }
+  }
+
+  @override
+  Future<bool> requestPermission() async {
+    try {
+      return await localDataSource.requestPermission();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool?> hasPermission() async {
+    try {
+      return await localDataSource.hasPermission();
+    } catch (_) {
+      return null;
     }
   }
 
@@ -80,57 +111,84 @@ class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   static const List<int> _escalationOffsets = [-30, -20, -10, -5, -1, 0];
+  static const int _maxReminders = 5;
 
-  static (int, int) _calculateOffsetTime(
+  /// Minutes past midnight after applying [offsetMinutes], plus how many days
+  /// the time shifted (-1 when an early nudge crosses midnight).
+  static (int, int, int) _calculateOffsetTime(
     int hour,
     int minute,
     int offsetMinutes,
   ) {
-    int totalMinutes = (hour * 60 + minute + offsetMinutes) % (24 * 60);
-    if (totalMinutes < 0) totalMinutes += 24 * 60;
-    return (totalMinutes ~/ 60, totalMinutes % 60);
+    final raw = hour * 60 + minute + offsetMinutes;
+    final dayShift = raw < 0 ? -1 : (raw >= 24 * 60 ? 1 : 0);
+    final total = raw % (24 * 60);
+    return (total ~/ 60, total % 60, dayShift);
   }
 
   @override
-  Future<Result<void>> scheduleGoalReminders(GoalModel goal) async {
+  Future<Result<void>> scheduleGoalReminders(
+    GoalModel goal, {
+    bool skipToday = false,
+    bool? includeEscalation,
+  }) async {
     try {
       final baseId = goal.id.hashCode.abs() % 100000;
-      final reminders = goal.activeReminderTimes;
+      final reminders = goal.activeReminderTimes.take(_maxReminders).toList();
+      final withEscalation =
+          includeEscalation ?? escalationEnabled?.call() ?? true;
+      // Daily IDs use baseId..+59; weekly (rest-day) IDs use baseId+100..+309.
+      final weekdays = goal.hasRestDays ? goal.activeWeekdays : const <int>[];
 
       for (int i = 0; i < reminders.length; i++) {
         final reminder = reminders[i];
         for (int j = 0; j < _escalationOffsets.length; j++) {
           final offset = _escalationOffsets[j];
-          final (hour, minute) = _calculateOffsetTime(
+          if (!withEscalation && offset != 0) continue;
+          final (hour, minute, dayShift) = _calculateOffsetTime(
             reminder.hour,
             reminder.minute,
             offset,
           );
-          final slotId = baseId + (i * 10) + j;
 
           final String title;
           final String body;
 
           if (offset == 0) {
-            title = 'Target Reminder: ${goal.title}';
+            title = goal.title;
             body = goal.motivationalQuote.isNotEmpty
                 ? goal.motivationalQuote
-                : 'Keep your consistency streak alive! Focus ${goal.targetMinutes} mins today.';
+                : 'Time for your ${goal.targetMinutes} minutes today.';
           } else {
             final minsRemaining = -offset;
-            title = 'Upcoming: ${goal.title} (${minsRemaining}m)';
+            title = '${goal.title} in $minsRemaining min';
             body = goal.motivationalQuote.isNotEmpty
                 ? goal.motivationalQuote
-                : 'Target session begins in $minsRemaining minutes!';
+                : 'Your reminder is coming up in $minsRemaining minutes.';
           }
 
-          await localDataSource.scheduleGoalNotification(
-            id: slotId,
-            title: title,
-            body: body,
-            hour: hour,
-            minute: minute,
-          );
+          if (weekdays.isEmpty) {
+            await _schedule(
+              id: baseId + (i * 10) + j,
+              title: title,
+              body: body,
+              hour: hour,
+              minute: minute,
+              skipToday: skipToday,
+            );
+            continue;
+          }
+          for (final day in weekdays) {
+            await _schedule(
+              id: baseId + 100 + ((day - 1) * _maxReminders + i) * 6 + j,
+              title: title,
+              body: body,
+              hour: hour,
+              minute: minute,
+              skipToday: skipToday,
+              weekday: (day - 1 + dayShift) % 7 + 1,
+            );
+          }
         }
       }
       return const Result.success(null);
@@ -139,6 +197,46 @@ class NotificationRepositoryImpl implements NotificationRepository {
         NotificationFailure('Failed to schedule goal reminders: $e'),
       );
     }
+  }
+
+  Future<void> _schedule({
+    required int id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    required bool skipToday,
+    int? weekday,
+  }) {
+    // Only pass optional args when set so existing call signatures stay stable.
+    if (weekday != null) {
+      return localDataSource.scheduleGoalNotification(
+        id: id,
+        title: title,
+        body: body,
+        hour: hour,
+        minute: minute,
+        startTomorrow: skipToday,
+        weekday: weekday,
+      );
+    }
+    if (skipToday) {
+      return localDataSource.scheduleGoalNotification(
+        id: id,
+        title: title,
+        body: body,
+        hour: hour,
+        minute: minute,
+        startTomorrow: true,
+      );
+    }
+    return localDataSource.scheduleGoalNotification(
+      id: id,
+      title: title,
+      body: body,
+      hour: hour,
+      minute: minute,
+    );
   }
 
   @override

@@ -4,12 +4,22 @@ import 'package:timezone/timezone.dart' as tz;
 
 abstract class NotificationLocalDataSource {
   Future<void> initialize();
+
+  /// Shows the OS permission prompt (once); returns whether allowed.
+  Future<bool> requestPermission();
+
+  /// Whether notifications are currently allowed; null when unknown.
+  Future<bool?> hasPermission();
+
+  /// [weekday] (1 = Monday) repeats weekly instead of daily.
   Future<void> scheduleGoalNotification({
     required int id,
     required String title,
     required String body,
     required int hour,
     required int minute,
+    bool startTomorrow = false,
+    int? weekday,
   });
   Future<void> scheduleZonedGoalNotification({
     required int id,
@@ -17,6 +27,8 @@ abstract class NotificationLocalDataSource {
     required String body,
     required int hour,
     required int minute,
+    bool startTomorrow = false,
+    int? weekday,
   });
   Future<void> showImmediateNotification({
     required String title,
@@ -27,6 +39,9 @@ abstract class NotificationLocalDataSource {
 }
 
 class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
+  /// Reminder IDs for a goal occupy `[baseId, baseId + idSpan)`.
+  static const int idSpan = 320;
+
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -53,10 +68,11 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
+    // Permission is requested in context (first goal / enabling reminders).
     const darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     const initSettings = InitializationSettings(
@@ -66,6 +82,62 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     );
 
     await _notificationsPlugin.initialize(settings: initSettings);
+  }
+
+  @override
+  Future<bool> requestPermission() async {
+    final android = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android != null) {
+      return await android.requestNotificationsPermission() ?? false;
+    }
+    final mac = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin
+        >();
+    if (mac != null) {
+      return await mac.requestPermissions(
+            alert: true,
+            sound: true,
+            badge: true,
+          ) ??
+          false;
+    }
+    final ios = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    if (ios != null) {
+      return await ios.requestPermissions(
+            alert: true,
+            sound: true,
+            badge: true,
+          ) ??
+          false;
+    }
+    return true;
+  }
+
+  @override
+  Future<bool?> hasPermission() async {
+    final android = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android != null) return android.areNotificationsEnabled();
+    final mac = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin
+        >();
+    if (mac != null) return (await mac.checkPermissions())?.isEnabled;
+    final ios = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    if (ios != null) return (await ios.checkPermissions())?.isEnabled;
+    return null;
   }
 
   @override
@@ -89,6 +161,7 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     const notificationDetails = NotificationDetails(
       android: androidDetails,
       macOS: darwinDetails,
+      iOS: darwinDetails,
     );
 
     await _notificationsPlugin.show(
@@ -106,6 +179,8 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     required String body,
     required int hour,
     required int minute,
+    bool startTomorrow = false,
+    int? weekday,
   }) async {
     const androidDetails = AndroidNotificationDetails(
       'consistency_reminders',
@@ -129,26 +204,36 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     );
 
     final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(
+    tz.TZDateTime at(int dayOffset) => tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
-      now.day,
+      now.day + dayOffset,
       hour,
       minute,
     );
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
+
+    var offset = 0;
+    if (weekday != null) {
+      offset = (weekday - now.weekday) % 7;
+      if ((offset == 0 && startTomorrow) || at(offset).isBefore(now)) {
+        offset += 7;
+      }
+    } else if (startTomorrow || at(0).isBefore(now)) {
+      offset = 1;
     }
 
+    // Inexact scheduling needs no exact-alarm permission on Android 12+.
     await _notificationsPlugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
-      scheduledDate: scheduledDate,
+      scheduledDate: at(offset),
       notificationDetails: notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: weekday == null
+          ? DateTimeComponents.time
+          : DateTimeComponents.dayOfWeekAndTime,
     );
   }
 
@@ -159,6 +244,8 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
     required String body,
     required int hour,
     required int minute,
+    bool startTomorrow = false,
+    int? weekday,
   }) async {
     return scheduleZonedGoalNotification(
       id: id,
@@ -166,6 +253,8 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
       body: body,
       hour: hour,
       minute: minute,
+      startTomorrow: startTomorrow,
+      weekday: weekday,
     );
   }
 
@@ -177,9 +266,16 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
   @override
   Future<void> cancelGoalReminders(String goalId) async {
     final int baseId = goalId.hashCode.abs() % 100000;
-    // Cancel up to 100 potential reminder and escalation slots for this goal ID
-    for (int i = 0; i < 100; i++) {
-      await _notificationsPlugin.cancel(id: baseId + i);
+    bool owned(int id) => id >= baseId && id < baseId + idSpan;
+    try {
+      final pending = await _notificationsPlugin.pendingNotificationRequests();
+      for (final p in pending.where((p) => owned(p.id))) {
+        await _notificationsPlugin.cancel(id: p.id);
+      }
+    } catch (_) {
+      for (var i = 0; i < idSpan; i++) {
+        await _notificationsPlugin.cancel(id: baseId + i);
+      }
     }
   }
 }

@@ -67,7 +67,7 @@ void main() {
         verify(
           () => mockLocalDataSource.scheduleGoalNotification(
             id: any(named: 'id'),
-            title: 'Target Reminder: Deep Focus',
+            title: 'Deep Focus',
             body: 'Consistency is key',
             hour: 9,
             minute: 0,
@@ -76,7 +76,7 @@ void main() {
         verify(
           () => mockLocalDataSource.scheduleGoalNotification(
             id: any(named: 'id'),
-            title: 'Target Reminder: Deep Focus',
+            title: 'Deep Focus',
             body: 'Consistency is key',
             hour: 18,
             minute: 30,
