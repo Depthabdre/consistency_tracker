@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/services/audio_service.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../settings/domain/entities/app_settings.dart';
+import '../../data/datasources/active_session_store.dart';
 import '../../data/models/focus_session_model.dart';
 import '../../data/repositories/focus_session_repository.dart';
 import '../../domain/entities/session_phase.dart';
@@ -18,6 +19,7 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
   final ManageTimerUseCase manageTimerUseCase;
   final AudioService audioService;
   final NotificationService notificationService;
+  final ActiveSessionStore activeSessionStore;
 
   Timer? _tickerTimer;
   AppSettings _activeSettings = AppSettings.defaults;
@@ -29,17 +31,178 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
     ManageTimerUseCase? manageTimerUseCase,
     AudioService? audioService,
     NotificationService? notificationService,
+    ActiveSessionStore? activeSessionStore,
   }) : calculateChunksUseCase =
            calculateChunksUseCase ?? CalculateChunksUseCase(),
        manageTimerUseCase = manageTimerUseCase ?? ManageTimerUseCase(),
        audioService = audioService ?? AudioServiceImpl(),
        notificationService = notificationService ?? DummyNotificationService(),
+       activeSessionStore =
+           activeSessionStore ?? const NoopActiveSessionStore(),
        super(const FocusTimerInitialState()) {
     on<StartFocusTimerEvent>(_onStartTimer);
     on<TickFocusTimerEvent>(_onTickTimer);
     on<PauseFocusTimerEvent>(_onPauseTimer);
     on<ResumeFocusTimerEvent>(_onResumeTimer);
     on<CompleteFocusTimerEvent>(_onCompleteTimer);
+    on<RestoreFocusTimerEvent>(_onRestore);
+  }
+
+  Future<void> _persist() async {
+    final s = state;
+    final ActiveSessionSnapshot snapshot;
+    if (s is FocusTimerRunningState) {
+      snapshot = ActiveSessionSnapshot(
+        goalId: s.goalId,
+        targetMinutes: s.targetMinutes,
+        phases: s.phases,
+        currentPhaseIndex: s.currentPhaseIndex,
+        remainingSecondsInPhase: s.remainingSecondsInPhase,
+        elapsedSeconds: s.elapsedSeconds,
+        accumulatedFocusSeconds: _accumulatedFocusSeconds,
+        paused: false,
+        targetEndTime: s.targetEndTime,
+        soundEnabled: _activeSettings.soundEnabled,
+        notificationsEnabled: _activeSettings.notificationsEnabled,
+      );
+    } else if (s is FocusTimerPausedState) {
+      snapshot = ActiveSessionSnapshot(
+        goalId: s.goalId,
+        targetMinutes: s.targetMinutes,
+        phases: s.phases,
+        currentPhaseIndex: s.currentPhaseIndex,
+        remainingSecondsInPhase: s.remainingSecondsInPhase,
+        elapsedSeconds: s.elapsedSeconds,
+        accumulatedFocusSeconds: _accumulatedFocusSeconds,
+        paused: true,
+        soundEnabled: _activeSettings.soundEnabled,
+        notificationsEnabled: _activeSettings.notificationsEnabled,
+      );
+    } else {
+      return;
+    }
+    try {
+      await activeSessionStore.save(snapshot);
+    } catch (_) {}
+  }
+
+  Future<void> _clearPersisted() async {
+    try {
+      await activeSessionStore.clear();
+    } catch (_) {}
+  }
+
+  Future<void> _onRestore(
+    RestoreFocusTimerEvent event,
+    Emitter<FocusTimerState> emit,
+  ) async {
+    if (state is FocusTimerRunningState || state is FocusTimerPausedState) {
+      return;
+    }
+    final ActiveSessionSnapshot? snap;
+    try {
+      snap = await activeSessionStore.load();
+    } catch (_) {
+      return;
+    }
+    if (snap == null) return;
+
+    _activeSettings = AppSettings.defaults.copyWith(
+      soundEnabled: snap.soundEnabled,
+      notificationsEnabled: snap.notificationsEnabled,
+    );
+    _accumulatedFocusSeconds = snap.accumulatedFocusSeconds;
+
+    if (snap.paused || snap.targetEndTime == null) {
+      emit(
+        FocusTimerPausedState(
+          goalId: snap.goalId,
+          targetMinutes: snap.targetMinutes,
+          elapsedSeconds: snap.elapsedSeconds,
+          phases: snap.phases,
+          currentPhaseIndex: snap.currentPhaseIndex,
+          remainingSecondsInPhase: snap.remainingSecondsInPhase,
+        ),
+      );
+      return;
+    }
+
+    final now = event.now ?? DateTime.now();
+    var index = snap.currentPhaseIndex;
+    var phaseEnd = snap.targetEndTime!;
+    var remaining = snap.remainingSecondsInPhase;
+    var elapsed = snap.elapsedSeconds;
+
+    // Fast-forward through phases that finished while the app was closed.
+    while (!now.isBefore(phaseEnd)) {
+      if (snap.phases[index].type == SessionPhaseType.focus) {
+        _accumulatedFocusSeconds += remaining;
+      }
+      elapsed += remaining;
+      index++;
+      if (index >= snap.phases.length) {
+        await _finishSession(
+          emit,
+          goalId: snap.goalId,
+          targetMinutes: snap.targetMinutes,
+        );
+        return;
+      }
+      remaining = snap.phases[index].durationSeconds;
+      phaseEnd = phaseEnd.add(Duration(seconds: remaining));
+    }
+
+    // Time already spent in the current phase is counted by the first tick.
+    final phaseDuration = snap.phases[index].durationSeconds;
+    final startedPhaseEarlier = index != snap.currentPhaseIndex;
+    if (startedPhaseEarlier) {
+      final spent = phaseDuration - phaseEnd.difference(now).inSeconds;
+      if (snap.phases[index].type == SessionPhaseType.focus) {
+        _accumulatedFocusSeconds += spent;
+      }
+      elapsed += spent;
+      remaining = phaseDuration - spent;
+    }
+
+    emit(
+      FocusTimerRunningState(
+        goalId: snap.goalId,
+        targetMinutes: snap.targetMinutes,
+        elapsedSeconds: elapsed,
+        isTargetReached: elapsed >= snap.targetMinutes * 60,
+        phases: snap.phases,
+        currentPhaseIndex: index,
+        remainingSecondsInPhase: remaining,
+        targetEndTime: phaseEnd,
+      ),
+    );
+    await _persist();
+    _startTicker();
+  }
+
+  Future<void> _finishSession(
+    Emitter<FocusTimerState> emit, {
+    required String goalId,
+    required int targetMinutes,
+  }) async {
+    _tickerTimer?.cancel();
+    final focusMins = (_accumulatedFocusSeconds / 60).floor();
+    await sessionRepository.saveSession(
+      FocusSessionModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        goalId: goalId,
+        durationMinutes: focusMins,
+        timestamp: DateTime.now(),
+        completedTargetMet: _accumulatedFocusSeconds >= targetMinutes * 60,
+      ),
+    );
+    await _clearPersisted();
+    emit(
+      FocusTimerCompletedState(
+        goalId: goalId,
+        totalMinutesCompleted: focusMins,
+      ),
+    );
   }
 
   Future<void> _onStartTimer(
@@ -76,6 +239,7 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
       ),
     );
 
+    await _persist();
     _startTicker();
   }
 
@@ -151,12 +315,13 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
       );
 
       await sessionRepository.saveSession(session);
+      await _clearPersisted();
       await audioService.playTransitionSound(
         enabled: _activeSettings.soundEnabled,
       );
       await notificationService.showPhaseNotification(
         title: 'Focus session complete',
-        body: 'Great work! You reached your target time.',
+        body: 'Your focus time has been logged.',
         enabled: _activeSettings.notificationsEnabled,
       );
 
@@ -181,8 +346,8 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
     );
     await notificationService.showPhaseNotification(
       title: nextPhase.type == SessionPhaseType.breakTime
-          ? 'Break time ☕'
-          : 'Focus time 🎯',
+          ? 'Break time'
+          : 'Back to focus',
       body: nextPhase.type == SessionPhaseType.breakTime
           ? 'Take a short break before your next focus block.'
           : 'Break is over. Ready to focus?',
@@ -201,12 +366,13 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
         targetEndTime: nextTargetEnd,
       ),
     );
+    await _persist();
   }
 
-  void _onPauseTimer(
+  Future<void> _onPauseTimer(
     PauseFocusTimerEvent event,
     Emitter<FocusTimerState> emit,
-  ) {
+  ) async {
     if (state is FocusTimerRunningState) {
       final currentState = state as FocusTimerRunningState;
       _tickerTimer?.cancel();
@@ -220,13 +386,14 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
           remainingSecondsInPhase: currentState.remainingSecondsInPhase,
         ),
       );
+      await _persist();
     }
   }
 
-  void _onResumeTimer(
+  Future<void> _onResumeTimer(
     ResumeFocusTimerEvent event,
     Emitter<FocusTimerState> emit,
-  ) {
+  ) async {
     if (state is FocusTimerPausedState) {
       final currentState = state as FocusTimerPausedState;
       final now = DateTime.now();
@@ -249,6 +416,7 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
         ),
       );
 
+      await _persist();
       _startTicker();
     }
   }
@@ -284,6 +452,7 @@ class FocusTimerBloc extends Bloc<FocusTimerEvent, FocusTimerState> {
       );
 
       await sessionRepository.saveSession(session);
+      await _clearPersisted();
 
       emit(
         FocusTimerCompletedState(

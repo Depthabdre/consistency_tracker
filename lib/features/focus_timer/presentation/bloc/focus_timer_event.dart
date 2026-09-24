@@ -51,3 +51,13 @@ class CompleteFocusTimerEvent extends FocusTimerEvent {
   @override
   List<Object?> get props => [elapsedSeconds];
 }
+
+/// Restores a session interrupted by the app being closed.
+class RestoreFocusTimerEvent extends FocusTimerEvent {
+  final DateTime? now;
+
+  const RestoreFocusTimerEvent({this.now});
+
+  @override
+  List<Object?> get props => [now];
+}

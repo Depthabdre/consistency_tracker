@@ -1,175 +1,82 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_formatter.dart';
-import '../../domain/entities/session_phase.dart';
+import '../../../../core/widgets/progress_ring.dart';
 
-class CircularProgressTimer extends StatefulWidget {
+/// Large live countdown ring for the active phase.
+class CircularProgressTimer extends StatelessWidget {
   const CircularProgressTimer({
     super.key,
     required this.remainingSeconds,
     required this.totalSeconds,
-    required this.phaseType,
-    this.size = 280.0,
+    required this.color,
+    required this.caption,
+    this.size = 300,
+    this.paused = false,
+    this.endsAt,
   });
 
   final int remainingSeconds;
   final int totalSeconds;
-  final SessionPhaseType phaseType;
+  final Color color;
+  final String caption;
   final double size;
-
-  @override
-  State<CircularProgressTimer> createState() => _CircularProgressTimerState();
-}
-
-class _CircularProgressTimerState extends State<CircularProgressTimer>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
+  final bool paused;
+  final DateTime? endsAt;
 
   @override
   Widget build(BuildContext context) {
-    final double progress = widget.totalSeconds == 0
-        ? 0
-        : (1 - (widget.remainingSeconds / widget.totalSeconds)).clamp(0.0, 1.0);
+    final theme = Theme.of(context).textTheme;
+    final progress = totalSeconds == 0
+        ? 0.0
+        : (1 - remainingSeconds / totalSeconds).clamp(0.0, 1.0);
 
-    final Color activeColor = widget.phaseType == SessionPhaseType.breakTime
-        ? AppTheme
-              .successGreen // Soft green for breaks
-        : AppTheme.accentCyan; // Modern Windows 11 focus cyan
-
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: <Widget>[
-          // Deep glowing background ring
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return Container(
-                width: widget.size * 0.9,
-                height: widget.size * 0.9,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: activeColor.withValues(
-                        alpha: 0.08 + (_pulseController.value * 0.07),
-                      ),
-                      blurRadius: 35,
-                      spreadRadius: 10,
-                    ),
-                  ],
+    return Semantics(
+      label: '${formatClock(remainingSeconds)} remaining',
+      liveRegion: false,
+      child: AnimatedOpacity(
+        duration: AppMotion.medium,
+        opacity: paused ? 0.55 : 1,
+        child: ProgressRing(
+          progress: progress,
+          size: size,
+          strokeWidth: size * 0.025,
+          duration: const Duration(milliseconds: 1000),
+          curve: Curves.linear,
+          color: color,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                formatClock(remainingSeconds),
+                style: theme.displayLarge?.copyWith(
+                  fontSize: size * 0.2,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: -size * 0.004,
                 ),
-              );
-            },
+              ),
+              const SizedBox(height: 4),
+              AnimatedSwitcher(
+                duration: AppMotion.medium,
+                child: Text(
+                  paused ? 'Paused' : caption,
+                  key: ValueKey(paused ? 'paused' : caption),
+                  style: theme.bodySmall?.copyWith(
+                    color: paused ? AppColors.warning : AppColors.textMuted,
+                  ),
+                ),
+              ),
+              if (endsAt != null && !paused) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Ends ${formatTimeOfDay(endsAt!)}',
+                  style: theme.bodySmall,
+                ),
+              ],
+            ],
           ),
-
-          // Segmented Progress Circle (60 ticks around the clock)
-          CustomPaint(
-            size: Size(widget.size, widget.size),
-            painter: SegmentedCircularProgressPainter(
-              progress: progress,
-              activeColor: activeColor,
-              inactiveColor: AppTheme.surfaceCard,
-              segmentCount: 60,
-              strokeWidth: widget.size * 0.021,
-            ),
-          ),
-
-          // Inner Timer Counter (Clean & Minimal)
-          Text(
-            formatSecondsDynamic(widget.remainingSeconds),
-            style: TextStyle(
-              fontSize: widget.size * 0.17,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFFF9FAFB),
-              letterSpacing: -0.5,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
+        ),
       ),
     );
-  }
-}
-
-class SegmentedCircularProgressPainter extends CustomPainter {
-  const SegmentedCircularProgressPainter({
-    required this.progress,
-    required this.activeColor,
-    required this.inactiveColor,
-    required this.segmentCount,
-    required this.strokeWidth,
-  });
-
-  final double progress;
-  final Color activeColor;
-  final Color inactiveColor;
-  final int segmentCount;
-  final double strokeWidth;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double radius = math.min(size.width, size.height) / 2;
-    final Offset center = Offset(size.width / 2, size.height / 2);
-
-    final double sweepAngle = (math.pi * 2) / segmentCount;
-    final double gapAngle = sweepAngle * 0.35;
-    final double actualSweep = sweepAngle - gapAngle;
-
-    final Paint inactivePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..color = inactiveColor;
-
-    final Paint activePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 2
-      ..strokeCap = StrokeCap.round
-      ..color = activeColor;
-
-    final int activeSegments = (progress * segmentCount).round();
-
-    for (int i = 0; i < segmentCount; i++) {
-      final double startAngle = -math.pi / 2 + (i * sweepAngle);
-      final Paint currentPaint = i < activeSegments
-          ? activePaint
-          : inactivePaint;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
-        startAngle,
-        actualSweep,
-        false,
-        currentPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(SegmentedCircularProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.activeColor != activeColor ||
-        oldDelegate.inactiveColor != inactiveColor ||
-        oldDelegate.segmentCount != segmentCount ||
-        oldDelegate.strokeWidth != strokeWidth;
   }
 }
