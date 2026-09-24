@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/common_widgets.dart';
 
+/// Row with a compact − value + stepper.
 class DurationPicker extends StatelessWidget {
   const DurationPicker({
     super.key,
@@ -9,62 +11,85 @@ class DurationPicker extends StatelessWidget {
     required this.minMinutes,
     required this.maxMinutes,
     required this.onChanged,
+    this.icon = Icons.timer_outlined,
+    this.step = 1,
+    this.description,
   });
 
   final String label;
+  final String? description;
+  final IconData icon;
   final int valueMinutes;
   final int minMinutes;
   final int maxMinutes;
+  final int step;
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderOutline, width: 1),
-      ),
+    final theme = Theme.of(context).textTheme;
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
-        children: <Widget>[
+        children: [
+          SettingsIcon(icon: icon),
+          const SizedBox(width: 12),
           Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: theme.titleSmall),
+                if (description != null)
+                  Text(description!, style: theme.bodySmall),
+              ],
+            ),
+          ),
+          AppIconButton(
+            icon: Icons.remove_rounded,
+            tooltip: 'Decrease $label',
+            size: 32,
+            onTap: valueMinutes > minMinutes
+                ? () => onChanged(
+                    (valueMinutes - step).clamp(minMinutes, maxMinutes),
+                  )
+                : null,
+          ),
+          SizedBox(
+            width: 64,
             child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
+              '$valueMinutes min',
+              textAlign: TextAlign.center,
+              style: theme.titleSmall?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
-          IconButton(
-            onPressed: valueMinutes > minMinutes
-                ? () => onChanged(valueMinutes - 1)
+          AppIconButton(
+            icon: Icons.add_rounded,
+            tooltip: 'Increase $label',
+            size: 32,
+            onTap: valueMinutes < maxMinutes
+                ? () => onChanged(
+                    (valueMinutes + step).clamp(minMinutes, maxMinutes),
+                  )
                 : null,
-            icon: const Icon(
-              Icons.remove_circle_outline_rounded,
-              color: AppTheme.accentCyan,
-            ),
-          ),
-          Text(
-            '$valueMinutes min',
-            style: const TextStyle(
-              fontSize: 16,
-              color: Color(0xFFF2F4F8),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          IconButton(
-            onPressed: valueMinutes < maxMinutes
-                ? () => onChanged(valueMinutes + 1)
-                : null,
-            icon: const Icon(
-              Icons.add_circle_outline_rounded,
-              color: AppTheme.accentCyan,
-            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class SettingsIcon extends StatelessWidget {
+  const SettingsIcon({super.key, required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      child: Icon(icon, size: 20, color: AppColors.textSecondary),
     );
   }
 }
