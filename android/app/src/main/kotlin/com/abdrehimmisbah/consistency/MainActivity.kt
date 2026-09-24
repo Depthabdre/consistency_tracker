@@ -1,4 +1,4 @@
-package com.example.consistency_tracker
+package com.abdrehimmisbah.consistency
 
 import io.flutter.embedding.android.FlutterActivity
 
